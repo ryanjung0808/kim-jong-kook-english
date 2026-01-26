@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>김종국 영어 학습법</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container" role="main">
+        <h1 id="app-title">김종국 영어 학습법</h1>
+
+        <!-- 메인 화면 -->
+        <div id="main-section" aria-labelledby="app-title">
+            <!-- 문장 입력 폼 -->
+            <div class="input-form" role="form" aria-label="문장 입력 폼">
+                <div class="input-group">
+                    <label for="korean-input" class="input-label">한글 문장</label>
+                    <input type="text" id="korean-input" placeholder="예: 나는 영어를 공부하고 있습니다" aria-required="true">
+                </div>
+
+                <div class="input-group">
+                    <label for="english-input" class="input-label">영어 문장</label>
+                    <input type="text" id="english-input" placeholder="예: I am studying English" aria-required="true">
+                </div>
+
+                <div class="button-row">
+                    <button type="button" id="add-btn" aria-label="문장 추가">
+                        <span class="btn-icon-small">+</span> 추가
+                    </button>
+                    <label class="upload-btn" role="button" tabindex="0" aria-label="엑셀 파일 업로드">
+                        <span class="btn-icon-small">&#8593;</span> 엑셀 업로드
+                        <input type="file" id="excel-input" accept=".xlsx,.xls" style="display: none;">
+                    </label>
+                </div>
+            </div>
+            <p class="upload-hint">* 엑셀 파일: A열에 한글, B열에 영어를 입력하세요</p>
+
+            <!-- 문장 목록 -->
+            <div class="word-list-section">
+                <div class="section-header">
+                    <h2 id="list-heading">문장 목록 (<span id="sentence-count">0</span>개)</h2>
+                    <span class="scroll-hint" id="scroll-hint" hidden>스크롤하여 더 보기</span>
+                </div>
+                <div class="list-container">
+                    <ul id="word-list" aria-labelledby="list-heading" role="list"></ul>
+                </div>
+                <div id="empty-message" class="empty-state" aria-live="polite">
+                    <div class="empty-icon">&#128221;</div>
+                    <p class="empty-title">아직 등록된 문장이 없습니다</p>
+                    <p class="empty-desc">위 입력란에서 학습할 문장을 추가하거나<br>엑셀 파일을 업로드해보세요</p>
+                </div>
+            </div>
+
+            <!-- 휴지통 -->
+            <div class="trash-section">
+                <button id="trash-toggle" class="trash-toggle" aria-expanded="false" aria-controls="trash-content">
+                    <span class="trash-icon">🗑️</span>
+                    휴지통 (<span id="trash-count">0</span>개)
+                    <span class="toggle-arrow">▼</span>
+                </button>
+                <div id="trash-content" class="trash-content" hidden>
+                    <ul id="trash-list" role="list"></ul>
+                    <p id="trash-empty" class="empty-message">휴지통이 비어있습니다.</p>
+                    <button id="empty-trash-btn" class="empty-trash-btn">휴지통 비우기</button>
+                </div>
+            </div>
+
+            <!-- 퀴즈 시작 버튼 -->
+            <div class="quiz-start-section">
+                <button id="quiz-start-btn" class="quiz-btn primary-action" aria-describedby="quiz-description">
+                    <span class="btn-icon-large">&#9654;</span>
+                    <span class="btn-label">암기 테스트 시작</span>
+                    <span class="btn-sublabel">전체 문장으로 테스트</span>
+                </button>
+                <button id="main-wrong-btn" class="quiz-btn secondary-action">
+                    <span class="btn-icon-large">&#8634;</span>
+                    <span class="btn-label">틀린 문장만 테스트</span>
+                    <span class="btn-sublabel"><span id="main-wrong-count">0</span>개의 복습할 문장</span>
+                </button>
+                <p id="quiz-description" class="visually-hidden">등록된 문장들로 암기 테스트를 시작합니다</p>
+            </div>
+        </div>
+
+        <!-- 수정 모달 -->
+        <div id="edit-modal" class="modal-overlay" role="dialog" aria-labelledby="edit-modal-title" aria-modal="true">
+            <div class="modal edit-modal">
+                <h3 id="edit-modal-title">문장 수정</h3>
+                <div class="edit-form">
+                    <label for="edit-korean-input" class="visually-hidden">한글 문장</label>
+                    <input type="text" id="edit-korean-input" placeholder="한글 문장">
+                    <label for="edit-english-input" class="visually-hidden">영어 문장</label>
+                    <input type="text" id="edit-english-input" placeholder="영어 문장">
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-cancel" id="edit-cancel-btn">
+                        <span class="modal-btn-icon">&#10005;</span> 취소
+                    </button>
+                    <button class="modal-save" id="edit-save-btn">
+                        <span class="modal-btn-icon">&#10003;</span> 저장
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 퀴즈 화면 -->
+        <div id="quiz-section" aria-live="polite" aria-labelledby="quiz-progress">
+            <div class="quiz-header">
+                <div class="quiz-progress-info">
+                    <span class="progress-text">
+                        <span id="current-num">1</span> / <span id="total-num">10</span>
+                    </span>
+                    <span class="progress-stats">
+                        <span class="stat-correct" title="알았어요"><span id="live-correct">0</span></span>
+                        <span class="stat-wrong" title="모르겠어요"><span id="live-wrong">0</span></span>
+                    </span>
+                </div>
+                <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="quiz-question">
+                <p class="quiz-label" id="quiz-instruction">이 문장을 영어로 말해보세요</p>
+                <div class="korean-sentence-wrapper">
+                    <p class="korean-sentence" id="quiz-korean" aria-labelledby="quiz-instruction" tabindex="-1"></p>
+                </div>
+
+                <div id="answer-area" class="answer-area">
+                    <button id="show-btn" class="show-btn" aria-expanded="false" aria-controls="quiz-english">
+                        <span class="show-btn-icon">&#128065;</span> 정답 보기
+                        <span class="show-btn-hint">(Space 또는 Enter)</span>
+                    </button>
+                    <div class="english-sentence-wrapper">
+                        <p id="quiz-english" class="english-sentence" aria-hidden="true"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quiz-buttons" role="group" aria-label="정답 확인">
+                <button id="wrong-btn" class="quiz-answer-btn wrong-btn" aria-label="모르겠어요 - 다음 문제로" disabled>
+                    <span class="btn-icon">X</span>
+                    <span class="btn-text">모르겠어요</span>
+                    <span class="btn-shortcut">X키</span>
+                </button>
+                <button id="correct-btn" class="quiz-answer-btn correct-btn" aria-label="알았어요 - 다음 문제로" disabled>
+                    <span class="btn-icon">O</span>
+                    <span class="btn-text">알았어요</span>
+                    <span class="btn-shortcut">O키</span>
+                </button>
+            </div>
+
+            <div class="quiz-nav">
+                <button id="quit-btn" class="quit-btn" aria-label="테스트 종료하고 메인 화면으로 돌아가기">
+                    <span class="quit-icon">&#10005;</span> 테스트 종료
+                </button>
+            </div>
+
+            <div class="keyboard-hint">
+                <span class="hint-item"><kbd>Space</kbd> 정답 보기</span>
+                <span class="hint-item"><kbd>O</kbd> 알았어요</span>
+                <span class="hint-item"><kbd>X</kbd> 모르겠어요</span>
+                <span class="hint-item"><kbd>Esc</kbd> 종료</span>
+            </div>
+        </div>
+
+        <!-- 결과 화면 -->
+        <div id="result-section" aria-labelledby="result-title">
+            <div class="result-header">
+                <h2 id="result-title">테스트 완료!</h2>
+                <div class="result-score" id="result-score">
+                    <span class="score-percent">0</span><span class="score-unit">%</span>
+                </div>
+            </div>
+
+            <div class="result-summary">
+                <div class="result-stat correct">
+                    <div class="stat-circle correct-circle">
+                        <span class="stat-number" id="correct-count">0</span>
+                    </div>
+                    <span class="stat-label">알았어요</span>
+                </div>
+                <div class="result-divider"></div>
+                <div class="result-stat wrong">
+                    <div class="stat-circle wrong-circle">
+                        <span class="stat-number" id="wrong-count">0</span>
+                    </div>
+                    <span class="stat-label">모르겠어요</span>
+                </div>
+            </div>
+
+            <p class="result-message" id="result-message"></p>
+
+            <!-- 틀린 문장 목록 -->
+            <div id="wrong-list-section" class="wrong-list-section">
+                <div class="wrong-list-header">
+                    <h3>다시 복습할 문장</h3>
+                    <span class="wrong-list-count" id="wrong-list-count">0개</span>
+                </div>
+                <ul id="wrong-list"></ul>
+            </div>
+
+            <div class="result-buttons">
+                <button id="retry-wrong-btn" class="result-btn primary-result-btn">
+                    <span class="result-btn-icon">&#8634;</span>
+                    틀린 문장만 다시 테스트
+                </button>
+                <button id="retry-btn" class="result-btn secondary-result-btn">
+                    <span class="result-btn-icon">&#9654;</span>
+                    전체 다시 테스트
+                </button>
+                <button id="back-btn" class="result-btn tertiary-result-btn">
+                    <span class="result-btn-icon">&#8592;</span>
+                    메인으로 돌아가기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
