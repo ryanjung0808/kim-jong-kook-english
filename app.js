@@ -1,3 +1,9 @@
+// Supabase 설정
+const SUPABASE_URL = 'https://bgtrmltlwpeeahtzucaz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHJtbHRsd3BlZWFodHp1Y2F6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0MDQ1MTIsImV4cCI6MjA4NDk4MDUxMn0.OGyujEyQNInDeWeYu6OP1Os8pI4LZZFta_QGJ_SoriY';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 // DOM 요소
 const koreanInput = document.getElementById('korean-input');
 const englishInput = document.getElementById('english-input');
@@ -41,7 +47,8 @@ const wrongList = document.getElementById('wrong-list');
 
 // 문장 데이터
 let sentences = [];
-let wrongSentences = []; // LocalStorage에 저장되는 틀린 문장
+let wrongSentences = [];
+let trashSentences = [];
 let currentSentence = null;
 
 // 퀴즈 상태
@@ -51,7 +58,7 @@ let quizState = {
     correctAnswers: 0,
     wrongAnswers: 0,
     questionPool: [],
-    sessionWrong: [] // 현재 세션에서 틀린 문장 (결과 화면용)
+    sessionWrong: []
 };
 
 // 삭제 대기 인덱스
@@ -66,7 +73,6 @@ const editCancelBtn = document.getElementById('edit-cancel-btn');
 const editSaveBtn = document.getElementById('edit-save-btn');
 
 // 휴지통 관련
-let trashSentences = [];
 const trashToggle = document.getElementById('trash-toggle');
 const trashContent = document.getElementById('trash-content');
 const trashList = document.getElementById('trash-list');
@@ -74,33 +80,71 @@ const trashCount = document.getElementById('trash-count');
 const trashEmpty = document.getElementById('trash-empty');
 const emptyTrashBtn = document.getElementById('empty-trash-btn');
 
-// LocalStorage에서 문장 불러오기
-function loadSentences() {
-    const saved = localStorage.getItem('sentences');
-    if (saved) {
-        sentences = JSON.parse(saved);
+// Supabase에서 문장 불러오기
+async function loadSentences() {
+    try {
+        const { data, error } = await supabase
+            .from('kor_eng')
+            .select('*')
+            .eq('category', 'main')
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        sentences = data.map(row => ({
+            id: row.id,
+            korean: row.korean,
+            english: row.english
+        }));
+        renderSentenceList();
+    } catch (error) {
+        console.error('Error loading sentences:', error);
+        showError('문장을 불러오는 중 오류가 발생했습니다.');
     }
-    renderSentenceList();
 }
 
-// LocalStorage에 문장 저장
-function saveSentences() {
-    localStorage.setItem('sentences', JSON.stringify(sentences));
-}
+// Supabase에서 틀린 문장 불러오기
+async function loadWrongSentences() {
+    try {
+        const { data, error } = await supabase
+            .from('kor_eng')
+            .select('*')
+            .eq('category', 'wrong')
+            .order('created_at', { ascending: true });
 
-// LocalStorage에서 틀린 문장 불러오기
-function loadWrongSentences() {
-    const saved = localStorage.getItem('wrongSentences');
-    if (saved) {
-        wrongSentences = JSON.parse(saved);
+        if (error) throw error;
+
+        wrongSentences = data.map(row => ({
+            id: row.id,
+            korean: row.korean,
+            english: row.english
+        }));
+        updateMainWrongCount();
+    } catch (error) {
+        console.error('Error loading wrong sentences:', error);
     }
-    updateMainWrongCount();
 }
 
-// LocalStorage에 틀린 문장 저장
-function saveWrongSentences() {
-    localStorage.setItem('wrongSentences', JSON.stringify(wrongSentences));
-    updateMainWrongCount();
+// Supabase에서 휴지통 불러오기
+async function loadTrash() {
+    try {
+        const { data, error } = await supabase
+            .from('kor_eng')
+            .select('*')
+            .eq('category', 'trash')
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        trashSentences = data.map(row => ({
+            id: row.id,
+            korean: row.korean,
+            english: row.english
+        }));
+        renderTrashList();
+    } catch (error) {
+        console.error('Error loading trash:', error);
+    }
 }
 
 // 메인 화면 틀린 문장 개수 업데이트
@@ -111,21 +155,6 @@ function updateMainWrongCount() {
     } else {
         mainWrongBtn.disabled = false;
     }
-}
-
-// LocalStorage에서 휴지통 불러오기
-function loadTrash() {
-    const saved = localStorage.getItem('trashSentences');
-    if (saved) {
-        trashSentences = JSON.parse(saved);
-    }
-    renderTrashList();
-}
-
-// LocalStorage에 휴지통 저장
-function saveTrash() {
-    localStorage.setItem('trashSentences', JSON.stringify(trashSentences));
-    renderTrashList();
 }
 
 // 휴지통 목록 렌더링
@@ -165,39 +194,87 @@ function toggleTrash() {
 }
 
 // 휴지통으로 이동
-function moveToTrash(index) {
+async function moveToTrash(index) {
     const sentence = sentences[index];
-    trashSentences.push(sentence);
-    sentences.splice(index, 1);
-    saveSentences();
-    saveTrash();
-    renderSentenceList();
+    try {
+        const { error } = await supabase
+            .from('kor_eng')
+            .update({ category: 'trash' })
+            .eq('id', sentence.id);
+
+        if (error) throw error;
+
+        trashSentences.push(sentence);
+        sentences.splice(index, 1);
+        renderSentenceList();
+        renderTrashList();
+    } catch (error) {
+        console.error('Error moving to trash:', error);
+        showError('휴지통으로 이동 중 오류가 발생했습니다.');
+    }
 }
 
 // 복원
-function restoreFromTrash(index) {
+async function restoreFromTrash(index) {
     const sentence = trashSentences[index];
-    sentences.push(sentence);
-    trashSentences.splice(index, 1);
-    saveSentences();
-    saveTrash();
-    renderSentenceList();
-    showToast('문장이 복원되었습니다.');
+    try {
+        const { error } = await supabase
+            .from('kor_eng')
+            .update({ category: 'main' })
+            .eq('id', sentence.id);
+
+        if (error) throw error;
+
+        sentences.push(sentence);
+        trashSentences.splice(index, 1);
+        renderSentenceList();
+        renderTrashList();
+        showToast('문장이 복원되었습니다.');
+    } catch (error) {
+        console.error('Error restoring from trash:', error);
+        showError('복원 중 오류가 발생했습니다.');
+    }
 }
 
 // 완전 삭제
-function permanentDelete(index) {
-    trashSentences.splice(index, 1);
-    saveTrash();
-    showToast('문장이 완전히 삭제되었습니다.');
+async function permanentDelete(index) {
+    const sentence = trashSentences[index];
+    try {
+        const { error } = await supabase
+            .from('kor_eng')
+            .delete()
+            .eq('id', sentence.id);
+
+        if (error) throw error;
+
+        trashSentences.splice(index, 1);
+        renderTrashList();
+        showToast('문장이 완전히 삭제되었습니다.');
+    } catch (error) {
+        console.error('Error deleting permanently:', error);
+        showError('삭제 중 오류가 발생했습니다.');
+    }
 }
 
 // 휴지통 비우기
-function emptyTrash() {
+async function emptyTrash() {
     if (trashSentences.length === 0) return;
-    trashSentences = [];
-    saveTrash();
-    showToast('휴지통을 비웠습니다.');
+
+    try {
+        const { error } = await supabase
+            .from('kor_eng')
+            .delete()
+            .eq('category', 'trash');
+
+        if (error) throw error;
+
+        trashSentences = [];
+        renderTrashList();
+        showToast('휴지통을 비웠습니다.');
+    } catch (error) {
+        console.error('Error emptying trash:', error);
+        showError('휴지통 비우기 중 오류가 발생했습니다.');
+    }
 }
 
 // XSS 방지
@@ -325,9 +402,9 @@ function hideDeleteConfirm() {
 }
 
 // 삭제 확정 (휴지통으로 이동)
-function confirmDelete() {
+async function confirmDelete() {
     if (pendingDeleteIndex !== null) {
-        moveToTrash(pendingDeleteIndex);
+        await moveToTrash(pendingDeleteIndex);
         hideDeleteConfirm();
         showToast('문장이 휴지통으로 이동되었습니다.');
     }
@@ -352,7 +429,7 @@ function hideEditModal() {
 }
 
 // 수정 저장
-function saveEdit() {
+async function saveEdit() {
     if (pendingEditIndex === null) return;
 
     const korean = editKoreanInput.value.trim();
@@ -363,11 +440,24 @@ function saveEdit() {
         return;
     }
 
-    sentences[pendingEditIndex] = { korean, english };
-    saveSentences();
-    renderSentenceList();
-    hideEditModal();
-    showToast('문장이 수정되었습니다.');
+    const sentence = sentences[pendingEditIndex];
+
+    try {
+        const { error } = await supabase
+            .from('kor_eng')
+            .update({ korean, english })
+            .eq('id', sentence.id);
+
+        if (error) throw error;
+
+        sentences[pendingEditIndex] = { ...sentence, korean, english };
+        renderSentenceList();
+        hideEditModal();
+        showToast('문장이 수정되었습니다.');
+    } catch (error) {
+        console.error('Error updating sentence:', error);
+        showError('수정 중 오류가 발생했습니다.');
+    }
 }
 
 // 에러 스타일 제거
@@ -376,7 +466,7 @@ function clearErrorOnInput(e) {
 }
 
 // 문장 추가
-function addSentence() {
+async function addSentence() {
     const korean = koreanInput.value.trim();
     const english = englishInput.value.trim();
 
@@ -407,22 +497,49 @@ function addSentence() {
     koreanInput.classList.remove('error');
     englishInput.classList.remove('error');
 
-    sentences.push({ korean, english });
-    saveSentences();
-    renderSentenceList();
+    try {
+        const { data, error } = await supabase
+            .from('kor_eng')
+            .insert([{ korean, english, category: 'main' }])
+            .select();
 
-    koreanInput.value = '';
-    englishInput.value = '';
-    koreanInput.focus();
+        if (error) throw error;
 
-    showToast('문장이 추가되었습니다!');
+        sentences.push({
+            id: data[0].id,
+            korean: data[0].korean,
+            english: data[0].english
+        });
+        renderSentenceList();
+
+        koreanInput.value = '';
+        englishInput.value = '';
+        koreanInput.focus();
+
+        showToast('문장이 추가되었습니다!');
+    } catch (error) {
+        console.error('Error adding sentence:', error);
+        showError('문장 추가 중 오류가 발생했습니다.');
+    }
 }
 
 // 문장 삭제
-function deleteSentence(index) {
-    sentences.splice(index, 1);
-    saveSentences();
-    renderSentenceList();
+async function deleteSentence(index) {
+    const sentence = sentences[index];
+    try {
+        const { error } = await supabase
+            .from('kor_eng')
+            .delete()
+            .eq('id', sentence.id);
+
+        if (error) throw error;
+
+        sentences.splice(index, 1);
+        renderSentenceList();
+    } catch (error) {
+        console.error('Error deleting sentence:', error);
+        showError('삭제 중 오류가 발생했습니다.');
+    }
 }
 
 // 퀴즈 시작 (전체)
@@ -566,10 +683,25 @@ function isInWrongList(sentence) {
 }
 
 // 틀린 문장 목록에 추가
-function addToWrongList(sentence) {
+async function addToWrongList(sentence) {
     if (!isInWrongList(sentence)) {
-        wrongSentences.push(sentence);
-        saveWrongSentences();
+        try {
+            const { data, error } = await supabase
+                .from('kor_eng')
+                .insert([{ korean: sentence.korean, english: sentence.english, category: 'wrong' }])
+                .select();
+
+            if (error) throw error;
+
+            wrongSentences.push({
+                id: data[0].id,
+                korean: data[0].korean,
+                english: data[0].english
+            });
+            updateMainWrongCount();
+        } catch (error) {
+            console.error('Error adding to wrong list:', error);
+        }
     }
 }
 
@@ -585,11 +717,24 @@ function handleWrong() {
 }
 
 // 틀린 문장에서 삭제
-function deleteFromWrongList(index) {
-    wrongSentences.splice(index, 1);
-    saveWrongSentences();
-    renderWrongList();
-    showToast('복습 목록에서 삭제되었습니다.');
+async function deleteFromWrongList(index) {
+    const sentence = wrongSentences[index];
+    try {
+        const { error } = await supabase
+            .from('kor_eng')
+            .delete()
+            .eq('id', sentence.id);
+
+        if (error) throw error;
+
+        wrongSentences.splice(index, 1);
+        updateMainWrongCount();
+        renderWrongList();
+        showToast('복습 목록에서 삭제되었습니다.');
+    } catch (error) {
+        console.error('Error deleting from wrong list:', error);
+        showError('삭제 중 오류가 발생했습니다.');
+    }
 }
 
 // 틀린 문장 목록 렌더링
@@ -635,7 +780,7 @@ function showResults() {
 
     let message = '';
     if (percentage === 100) {
-        message = '완벽해요! 모든 문장을 알고 있어요! 🎉';
+        message = '완벽해요! 모든 문장을 알고 있어요!';
     } else if (percentage >= 80) {
         message = '잘하고 있어요! 조금만 더 복습하면 완벽해질 거예요.';
     } else if (percentage >= 60) {
@@ -699,7 +844,7 @@ wordList.addEventListener('click', (e) => {
 });
 
 // 틀린 문장 목록에서 삭제 버튼
-wrongList.addEventListener('click', (e) => {
+wrongList.addEventListener('click', async (e) => {
     if (e.target.classList.contains('wrong-delete-btn')) {
         const korean = e.target.dataset.korean;
         const english = e.target.dataset.english;
@@ -707,7 +852,7 @@ wrongList.addEventListener('click', (e) => {
         // wrongSentences에서 찾아서 삭제
         const index = wrongSentences.findIndex(s => s.korean === korean && s.english === english);
         if (index !== -1) {
-            deleteFromWrongList(index);
+            await deleteFromWrongList(index);
         }
 
         // sessionWrong에서도 삭제
@@ -764,12 +909,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 // 엑셀 파일 업로드 처리
-function handleExcelUpload(e) {
+async function handleExcelUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(event) {
+    reader.onload = async function(event) {
         try {
             const data = new Uint8Array(event.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
@@ -783,9 +928,10 @@ function handleExcelUpload(e) {
 
             let addedCount = 0;
             let skippedCount = 0;
+            const newSentences = [];
 
             // 각 행을 문장으로 추가
-            jsonData.forEach((row, index) => {
+            for (const row of jsonData) {
                 const korean = row[0] ? String(row[0]).trim() : '';
                 const english = row[1] ? String(row[1]).trim() : '';
 
@@ -796,16 +942,30 @@ function handleExcelUpload(e) {
                     );
 
                     if (!isDuplicate) {
-                        sentences.push({ korean, english });
+                        newSentences.push({ korean, english, category: 'main' });
                         addedCount++;
                     } else {
                         skippedCount++;
                     }
                 }
-            });
+            }
 
-            if (addedCount > 0) {
-                saveSentences();
+            if (newSentences.length > 0) {
+                const { data: insertedData, error } = await supabase
+                    .from('kor_eng')
+                    .insert(newSentences)
+                    .select();
+
+                if (error) throw error;
+
+                insertedData.forEach(row => {
+                    sentences.push({
+                        id: row.id,
+                        korean: row.korean,
+                        english: row.english
+                    });
+                });
+
                 renderSentenceList();
                 showToast(`${addedCount}개 문장 추가됨` + (skippedCount > 0 ? ` (중복 ${skippedCount}개 제외)` : ''));
             } else if (skippedCount > 0) {
@@ -840,17 +1000,23 @@ editEnglishInput.addEventListener('keypress', (e) => {
 // 휴지통 이벤트
 trashToggle.addEventListener('click', toggleTrash);
 emptyTrashBtn.addEventListener('click', emptyTrash);
-trashList.addEventListener('click', (e) => {
+trashList.addEventListener('click', async (e) => {
     if (e.target.classList.contains('restore-btn')) {
         const index = parseInt(e.target.dataset.index);
-        restoreFromTrash(index);
+        await restoreFromTrash(index);
     } else if (e.target.classList.contains('permanent-delete-btn')) {
         const index = parseInt(e.target.dataset.index);
-        permanentDelete(index);
+        await permanentDelete(index);
     }
 });
 
 // 초기화
-loadSentences();
-loadWrongSentences();
-loadTrash();
+async function init() {
+    await Promise.all([
+        loadSentences(),
+        loadWrongSentences(),
+        loadTrash()
+    ]);
+}
+
+init();
