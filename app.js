@@ -2,7 +2,7 @@
 const SUPABASE_URL = 'https://bgtrmltlwpeeahtzucaz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHJtbHRsd3BlZWFodHp1Y2F6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0MDQ1MTIsImV4cCI6MjA4NDk4MDUxMn0.OGyujEyQNInDeWeYu6OP1Os8pI4LZZFta_QGJ_SoriY';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // DOM 요소
 const koreanInput = document.getElementById('korean-input');
@@ -83,7 +83,7 @@ const emptyTrashBtn = document.getElementById('empty-trash-btn');
 // Supabase에서 문장 불러오기
 async function loadSentences() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('kor_eng')
             .select('*')
             .eq('category', 'main')
@@ -106,7 +106,7 @@ async function loadSentences() {
 // Supabase에서 틀린 문장 불러오기
 async function loadWrongSentences() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('kor_eng')
             .select('*')
             .eq('category', 'wrong')
@@ -128,7 +128,7 @@ async function loadWrongSentences() {
 // Supabase에서 휴지통 불러오기
 async function loadTrash() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('kor_eng')
             .select('*')
             .eq('category', 'trash')
@@ -197,7 +197,7 @@ function toggleTrash() {
 async function moveToTrash(index) {
     const sentence = sentences[index];
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('kor_eng')
             .update({ category: 'trash' })
             .eq('id', sentence.id);
@@ -218,7 +218,7 @@ async function moveToTrash(index) {
 async function restoreFromTrash(index) {
     const sentence = trashSentences[index];
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('kor_eng')
             .update({ category: 'main' })
             .eq('id', sentence.id);
@@ -240,7 +240,7 @@ async function restoreFromTrash(index) {
 async function permanentDelete(index) {
     const sentence = trashSentences[index];
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('kor_eng')
             .delete()
             .eq('id', sentence.id);
@@ -261,7 +261,7 @@ async function emptyTrash() {
     if (trashSentences.length === 0) return;
 
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('kor_eng')
             .delete()
             .eq('category', 'trash');
@@ -443,7 +443,7 @@ async function saveEdit() {
     const sentence = sentences[pendingEditIndex];
 
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('kor_eng')
             .update({ korean, english })
             .eq('id', sentence.id);
@@ -498,7 +498,7 @@ async function addSentence() {
     englishInput.classList.remove('error');
 
     try {
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from('kor_eng')
             .insert([{ korean, english, category: 'main' }])
             .select();
@@ -527,7 +527,7 @@ async function addSentence() {
 async function deleteSentence(index) {
     const sentence = sentences[index];
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('kor_eng')
             .delete()
             .eq('id', sentence.id);
@@ -686,7 +686,7 @@ function isInWrongList(sentence) {
 async function addToWrongList(sentence) {
     if (!isInWrongList(sentence)) {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await db
                 .from('kor_eng')
                 .insert([{ korean: sentence.korean, english: sentence.english, category: 'wrong' }])
                 .select();
@@ -720,7 +720,7 @@ function handleWrong() {
 async function deleteFromWrongList(index) {
     const sentence = wrongSentences[index];
     try {
-        const { error } = await supabase
+        const { error } = await db
             .from('kor_eng')
             .delete()
             .eq('id', sentence.id);
@@ -951,7 +951,7 @@ async function handleExcelUpload(e) {
             }
 
             if (newSentences.length > 0) {
-                const { data: insertedData, error } = await supabase
+                const { data: insertedData, error } = await db
                     .from('kor_eng')
                     .insert(newSentences)
                     .select();
