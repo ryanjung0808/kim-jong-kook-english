@@ -13,6 +13,8 @@ const wordList = document.getElementById('word-list');
 const quizStartBtn = document.getElementById('quiz-start-btn');
 const mainWrongBtn = document.getElementById('main-wrong-btn');
 const mainWrongCount = document.getElementById('main-wrong-count');
+const mainDoubleWrongBtn = document.getElementById('main-double-wrong-btn');
+const mainDoubleWrongCount = document.getElementById('main-double-wrong-count');
 const mainSection = document.getElementById('main-section');
 const quizSection = document.getElementById('quiz-section');
 const resultSection = document.getElementById('result-section');
@@ -48,6 +50,7 @@ const wrongList = document.getElementById('wrong-list');
 // 문장 데이터
 let sentences = [];
 let wrongSentences = [];
+let doubleWrongSentences = [];
 let trashSentences = [];
 let currentSentence = null;
 
@@ -58,7 +61,9 @@ let quizState = {
     correctAnswers: 0,
     wrongAnswers: 0,
     questionPool: [],
-    sessionWrong: []
+    sessionWrong: [],
+    isWrongQuiz: false,
+    isDoubleWrongQuiz: false
 };
 
 // 삭제 대기 인덱스
@@ -125,6 +130,28 @@ async function loadWrongSentences() {
     }
 }
 
+// Supabase에서 또 틀린 문장 불러오기
+async function loadDoubleWrongSentences() {
+    try {
+        const { data, error } = await db
+            .from('kor_eng')
+            .select('*')
+            .eq('category', 'double_wrong')
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        doubleWrongSentences = data.map(row => ({
+            id: row.id,
+            korean: row.korean,
+            english: row.english
+        }));
+        updateMainDoubleWrongCount();
+    } catch (error) {
+        console.error('Error loading double wrong sentences:', error);
+    }
+}
+
 // Supabase에서 휴지통 불러오기
 async function loadTrash() {
     try {
@@ -154,6 +181,16 @@ function updateMainWrongCount() {
         mainWrongBtn.disabled = true;
     } else {
         mainWrongBtn.disabled = false;
+    }
+}
+
+// 메인 화면 또 틀린 문장 개수 업데이트
+function updateMainDoubleWrongCount() {
+    mainDoubleWrongCount.textContent = doubleWrongSentences.length;
+    if (doubleWrongSentences.length === 0) {
+        mainDoubleWrongBtn.disabled = true;
+    } else {
+        mainDoubleWrongBtn.disabled = false;
     }
 }
 
@@ -556,7 +593,9 @@ function startQuiz() {
         correctAnswers: 0,
         wrongAnswers: 0,
         questionPool: [...sentences].sort(() => Math.random() - 0.5),
-        sessionWrong: []
+        sessionWrong: [],
+        isWrongQuiz: false,
+        isDoubleWrongQuiz: false
     };
 
     mainSection.style.display = 'none';
@@ -581,7 +620,36 @@ function startQuizWithWrongFromMain() {
         correctAnswers: 0,
         wrongAnswers: 0,
         questionPool: [...wrongSentences].sort(() => Math.random() - 0.5),
-        sessionWrong: []
+        sessionWrong: [],
+        isWrongQuiz: true,
+        isDoubleWrongQuiz: false
+    };
+
+    mainSection.style.display = 'none';
+    resultSection.style.display = 'none';
+    quizSection.style.display = 'block';
+
+    totalNum.textContent = quizState.totalQuestions;
+    updateProgress();
+    nextQuestion();
+}
+
+// 또 틀린 문장만 테스트 (메인 화면에서)
+function startQuizWithDoubleWrongFromMain() {
+    if (doubleWrongSentences.length === 0) {
+        showError('또 틀린 문장이 없습니다.');
+        return;
+    }
+
+    quizState = {
+        currentIndex: 0,
+        totalQuestions: doubleWrongSentences.length,
+        correctAnswers: 0,
+        wrongAnswers: 0,
+        questionPool: [...doubleWrongSentences].sort(() => Math.random() - 0.5),
+        sessionWrong: [],
+        isWrongQuiz: false,
+        isDoubleWrongQuiz: true
     };
 
     mainSection.style.display = 'none';
@@ -705,12 +773,46 @@ async function addToWrongList(sentence) {
     }
 }
 
+// 또 틀린 문장 목록에 있는지 확인
+function isInDoubleWrongList(sentence) {
+    return doubleWrongSentences.some(s => s.korean === sentence.korean && s.english === sentence.english);
+}
+
+// 또 틀린 문장 목록에 추가
+async function addToDoubleWrongList(sentence) {
+    if (!isInDoubleWrongList(sentence)) {
+        try {
+            const { data, error } = await db
+                .from('kor_eng')
+                .insert([{ korean: sentence.korean, english: sentence.english, category: 'double_wrong' }])
+                .select();
+
+            if (error) throw error;
+
+            doubleWrongSentences.push({
+                id: data[0].id,
+                korean: data[0].korean,
+                english: data[0].english
+            });
+            updateMainDoubleWrongCount();
+        } catch (error) {
+            console.error('Error adding to double wrong list:', error);
+        }
+    }
+}
+
 function handleWrong() {
     quizState.wrongAnswers++;
     quizState.sessionWrong.push(currentSentence);
 
-    // 전역 틀린 문장 목록에 추가
-    addToWrongList(currentSentence);
+    // 퀴즈 타입에 따라 다른 목록에 추가
+    if (quizState.isWrongQuiz) {
+        // 틀린 문장 테스트에서 또 틀렸으면 → 또 틀린 문장에 추가
+        addToDoubleWrongList(currentSentence);
+    } else if (!quizState.isDoubleWrongQuiz) {
+        // 전체 테스트에서 틀렸으면 → 틀린 문장에 추가
+        addToWrongList(currentSentence);
+    }
 
     quizState.currentIndex++;
     nextQuestion();
@@ -817,6 +919,7 @@ function backToMain() {
     resultSection.style.display = 'none';
     mainSection.style.display = 'block';
     updateMainWrongCount();
+    updateMainDoubleWrongCount();
     koreanInput.focus();
 }
 
@@ -866,6 +969,7 @@ wrongList.addEventListener('click', async (e) => {
 
 quizStartBtn.addEventListener('click', startQuiz);
 mainWrongBtn.addEventListener('click', startQuizWithWrongFromMain);
+mainDoubleWrongBtn.addEventListener('click', startQuizWithDoubleWrongFromMain);
 showBtn.addEventListener('click', showAnswer);
 correctBtn.addEventListener('click', handleCorrect);
 wrongBtn.addEventListener('click', handleWrong);
@@ -1015,6 +1119,7 @@ async function init() {
     await Promise.all([
         loadSentences(),
         loadWrongSentences(),
+        loadDoubleWrongSentences(),
         loadTrash()
     ]);
 }

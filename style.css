@@ -717,6 +717,17 @@ input:focus-visible {
     box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
 }
 
+.quiz-btn.tertiary-action {
+    background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3);
+}
+
+.quiz-btn.tertiary-action:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(142, 68, 173, 0.4);
+}
+
 .quiz-btn:active:not(:disabled) {
     transform: translateY(0) scale(0.98);
 }
