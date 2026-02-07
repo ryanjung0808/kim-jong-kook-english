@@ -740,16 +740,23 @@ function showAnswer() {
 
 // 정답 처리
 async function handleCorrect() {
+    // 현재 문장을 로컬 변수에 저장 (비동기 작업 중 변경 방지)
+    const sentenceToProcess = currentSentence;
+
     quizState.correctAnswers++;
 
-    // 퀴즈 타입에 따라 문장 이동
-    if (quizState.isWrongQuiz) {
-        // 틀린 문장 테스트에서 알았어요 → wrong에서 삭제 (일반으로 복귀)
-        await removeFromWrongList(currentSentence);
-    } else if (quizState.isDoubleWrongQuiz) {
-        // 또 틀린 문장 테스트에서 알았어요 → double_wrong에서 삭제하고 wrong으로 이동
-        await removeFromDoubleWrongList(currentSentence);
-        await addToWrongList(currentSentence);
+    try {
+        // 퀴즈 타입에 따라 문장 이동
+        if (quizState.isWrongQuiz) {
+            // 틀린 문장 테스트에서 알았어요 → wrong에서 삭제 (일반으로 복귀)
+            await removeFromWrongList(sentenceToProcess);
+        } else if (quizState.isDoubleWrongQuiz) {
+            // 또 틀린 문장 테스트에서 알았어요 → double_wrong에서 삭제하고 wrong으로 이동
+            await removeFromDoubleWrongList(sentenceToProcess);
+            await addToWrongList(sentenceToProcess);
+        }
+    } catch (error) {
+        console.error('handleCorrect error:', error);
     }
 
     quizState.currentIndex++;
@@ -888,19 +895,26 @@ async function moveToTrashFromDoubleWrong(sentence) {
 }
 
 async function handleWrong() {
-    quizState.wrongAnswers++;
-    quizState.sessionWrong.push(currentSentence);
+    // 현재 문장을 로컬 변수에 저장 (비동기 작업 중 변경 방지)
+    const sentenceToProcess = currentSentence;
 
-    // 퀴즈 타입에 따라 다른 목록에 추가/이동
-    if (quizState.isDoubleWrongQuiz) {
-        // 또 틀린 문장 테스트에서 모르겠어요 → 휴지통으로 이동
-        await moveToTrashFromDoubleWrong(currentSentence);
-    } else if (quizState.isWrongQuiz) {
-        // 틀린 문장 테스트에서 또 틀렸으면 → 또 틀린 문장에 추가
-        await addToDoubleWrongList(currentSentence);
-    } else {
-        // 전체 테스트에서 틀렸으면 → 틀린 문장에 추가
-        await addToWrongList(currentSentence);
+    quizState.wrongAnswers++;
+    quizState.sessionWrong.push(sentenceToProcess);
+
+    try {
+        // 퀴즈 타입에 따라 다른 목록에 추가/이동
+        if (quizState.isDoubleWrongQuiz) {
+            // 또 틀린 문장 테스트에서 모르겠어요 → 휴지통으로 이동
+            await moveToTrashFromDoubleWrong(sentenceToProcess);
+        } else if (quizState.isWrongQuiz) {
+            // 틀린 문장 테스트에서 또 틀렸으면 → 또 틀린 문장에 추가
+            await addToDoubleWrongList(sentenceToProcess);
+        } else {
+            // 전체 테스트에서 틀렸으면 → 틀린 문장에 추가
+            await addToWrongList(sentenceToProcess);
+        }
+    } catch (error) {
+        console.error('handleWrong error:', error);
     }
 
     quizState.currentIndex++;
