@@ -233,6 +233,9 @@ function toggleTrash() {
 // 휴지통으로 이동
 async function moveToTrash(index) {
     const sentence = sentences[index];
+    const koreanToDelete = sentence.korean;
+    const englishToDelete = sentence.english;
+
     try {
         const { error } = await db
             .from('kor_eng')
@@ -243,6 +246,25 @@ async function moveToTrash(index) {
 
         trashSentences.push(sentence);
         sentences.splice(index, 1);
+
+        // wrongSentences에서 동일한 문장 삭제
+        const wrongIndex = wrongSentences.findIndex(s => s.korean === koreanToDelete && s.english === englishToDelete);
+        if (wrongIndex !== -1) {
+            const wrongItem = wrongSentences[wrongIndex];
+            await db.from('kor_eng').delete().eq('id', wrongItem.id);
+            wrongSentences.splice(wrongIndex, 1);
+            updateMainWrongCount();
+        }
+
+        // doubleWrongSentences에서 동일한 문장 삭제
+        const doubleWrongIndex = doubleWrongSentences.findIndex(s => s.korean === koreanToDelete && s.english === englishToDelete);
+        if (doubleWrongIndex !== -1) {
+            const doubleWrongItem = doubleWrongSentences[doubleWrongIndex];
+            await db.from('kor_eng').delete().eq('id', doubleWrongItem.id);
+            doubleWrongSentences.splice(doubleWrongIndex, 1);
+            updateMainDoubleWrongCount();
+        }
+
         renderSentenceList();
         renderTrashList();
     } catch (error) {
@@ -478,8 +500,11 @@ async function saveEdit() {
     }
 
     const sentence = sentences[pendingEditIndex];
+    const oldKorean = sentence.korean;
+    const oldEnglish = sentence.english;
 
     try {
+        // 메인 문장 업데이트
         const { error } = await db
             .from('kor_eng')
             .update({ korean, english })
@@ -488,6 +513,35 @@ async function saveEdit() {
         if (error) throw error;
 
         sentences[pendingEditIndex] = { ...sentence, korean, english };
+
+        // wrongSentences에서 동일한 문장 찾아서 업데이트
+        const wrongIndex = wrongSentences.findIndex(s => s.korean === oldKorean && s.english === oldEnglish);
+        if (wrongIndex !== -1) {
+            const wrongItem = wrongSentences[wrongIndex];
+            const { error: wrongError } = await db
+                .from('kor_eng')
+                .update({ korean, english })
+                .eq('id', wrongItem.id);
+
+            if (!wrongError) {
+                wrongSentences[wrongIndex] = { ...wrongItem, korean, english };
+            }
+        }
+
+        // doubleWrongSentences에서 동일한 문장 찾아서 업데이트
+        const doubleWrongIndex = doubleWrongSentences.findIndex(s => s.korean === oldKorean && s.english === oldEnglish);
+        if (doubleWrongIndex !== -1) {
+            const doubleWrongItem = doubleWrongSentences[doubleWrongIndex];
+            const { error: doubleWrongError } = await db
+                .from('kor_eng')
+                .update({ korean, english })
+                .eq('id', doubleWrongItem.id);
+
+            if (!doubleWrongError) {
+                doubleWrongSentences[doubleWrongIndex] = { ...doubleWrongItem, korean, english };
+            }
+        }
+
         renderSentenceList();
         hideEditModal();
         showToast('문장이 수정되었습니다.');
