@@ -46,36 +46,6 @@
             </div>
             <p class="upload-hint">* 엑셀 파일: A열에 한글, B열에 영어를 입력하세요</p>
 
-            <!-- 문장 목록 -->
-            <div class="word-list-section">
-                <div class="section-header">
-                    <h2 id="list-heading">문장 목록 (<span id="sentence-count">0</span>개)</h2>
-                    <span class="scroll-hint" id="scroll-hint" hidden>스크롤하여 더 보기</span>
-                </div>
-                <div class="list-container">
-                    <ul id="word-list" aria-labelledby="list-heading" role="list"></ul>
-                </div>
-                <div id="empty-message" class="empty-state" aria-live="polite">
-                    <div class="empty-icon">&#128221;</div>
-                    <p class="empty-title">아직 등록된 문장이 없습니다</p>
-                    <p class="empty-desc">위 입력란에서 학습할 문장을 추가하거나<br>엑셀 파일을 업로드해보세요</p>
-                </div>
-            </div>
-
-            <!-- 휴지통 -->
-            <div class="trash-section">
-                <button id="trash-toggle" class="trash-toggle" aria-expanded="false" aria-controls="trash-content">
-                    <span class="trash-icon">🗑️</span>
-                    휴지통 (<span id="trash-count">0</span>개)
-                    <span class="toggle-arrow">▼</span>
-                </button>
-                <div id="trash-content" class="trash-content" hidden>
-                    <ul id="trash-list" role="list"></ul>
-                    <p id="trash-empty" class="empty-message">휴지통이 비어있습니다.</p>
-                    <button id="empty-trash-btn" class="empty-trash-btn">휴지통 비우기</button>
-                </div>
-            </div>
-
             <!-- 퀴즈 시작 버튼 -->
             <div class="quiz-start-section">
                 <button id="quiz-start-btn" class="quiz-btn primary-action" aria-describedby="quiz-description">
@@ -94,6 +64,36 @@
                     <span class="btn-sublabel"><span id="main-double-wrong-count">0</span>개의 어려운 문장</span>
                 </button>
                 <p id="quiz-description" class="visually-hidden">등록된 문장들로 암기 테스트를 시작합니다</p>
+            </div>
+
+            <!-- 휴지통 -->
+            <div class="trash-section">
+                <button id="trash-toggle" class="trash-toggle" aria-expanded="false" aria-controls="trash-content">
+                    <span class="trash-icon">🗑️</span>
+                    휴지통 (<span id="trash-count">0</span>개)
+                    <span class="toggle-arrow">▼</span>
+                </button>
+                <div id="trash-content" class="trash-content" hidden>
+                    <ul id="trash-list" role="list"></ul>
+                    <p id="trash-empty" class="empty-message">휴지통이 비어있습니다.</p>
+                    <button id="empty-trash-btn" class="empty-trash-btn">휴지통 비우기</button>
+                </div>
+            </div>
+
+            <!-- 문장 목록 -->
+            <div class="word-list-section">
+                <div class="section-header">
+                    <h2 id="list-heading">문장 목록 (<span id="sentence-count">0</span>개)</h2>
+                    <span class="scroll-hint" id="scroll-hint" hidden>스크롤하여 더 보기</span>
+                </div>
+                <div class="list-container">
+                    <ul id="word-list" aria-labelledby="list-heading" role="list"></ul>
+                </div>
+                <div id="empty-message" class="empty-state" aria-live="polite">
+                    <div class="empty-icon">&#128221;</div>
+                    <p class="empty-title">아직 등록된 문장이 없습니다</p>
+                    <p class="empty-desc">위 입력란에서 학습할 문장을 추가하거나<br>엑셀 파일을 업로드해보세요</p>
+                </div>
             </div>
         </div>
 

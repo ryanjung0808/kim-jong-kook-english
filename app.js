@@ -741,6 +741,17 @@ function showAnswer() {
 // 정답 처리
 function handleCorrect() {
     quizState.correctAnswers++;
+
+    // 퀴즈 타입에 따라 문장 이동
+    if (quizState.isWrongQuiz) {
+        // 틀린 문장 테스트에서 알았어요 → wrong에서 삭제 (일반으로 복귀)
+        removeFromWrongList(currentSentence);
+    } else if (quizState.isDoubleWrongQuiz) {
+        // 또 틀린 문장 테스트에서 알았어요 → double_wrong에서 삭제하고 wrong으로 이동
+        removeFromDoubleWrongList(currentSentence);
+        addToWrongList(currentSentence);
+    }
+
     quizState.currentIndex++;
     nextQuestion();
 }
@@ -801,15 +812,83 @@ async function addToDoubleWrongList(sentence) {
     }
 }
 
+// 틀린 문장에서 삭제 (by sentence content)
+async function removeFromWrongList(sentence) {
+    const index = wrongSentences.findIndex(s => s.korean === sentence.korean && s.english === sentence.english);
+    if (index !== -1) {
+        const item = wrongSentences[index];
+        try {
+            const { error } = await db
+                .from('kor_eng')
+                .delete()
+                .eq('id', item.id);
+
+            if (error) throw error;
+
+            wrongSentences.splice(index, 1);
+            updateMainWrongCount();
+        } catch (error) {
+            console.error('Error removing from wrong list:', error);
+        }
+    }
+}
+
+// 또 틀린 문장에서 삭제 (by sentence content)
+async function removeFromDoubleWrongList(sentence) {
+    const index = doubleWrongSentences.findIndex(s => s.korean === sentence.korean && s.english === sentence.english);
+    if (index !== -1) {
+        const item = doubleWrongSentences[index];
+        try {
+            const { error } = await db
+                .from('kor_eng')
+                .delete()
+                .eq('id', item.id);
+
+            if (error) throw error;
+
+            doubleWrongSentences.splice(index, 1);
+            updateMainDoubleWrongCount();
+        } catch (error) {
+            console.error('Error removing from double wrong list:', error);
+        }
+    }
+}
+
+// 휴지통으로 이동 (카테고리 변경)
+async function moveToTrashFromDoubleWrong(sentence) {
+    const index = doubleWrongSentences.findIndex(s => s.korean === sentence.korean && s.english === sentence.english);
+    if (index !== -1) {
+        const item = doubleWrongSentences[index];
+        try {
+            const { error } = await db
+                .from('kor_eng')
+                .update({ category: 'trash' })
+                .eq('id', item.id);
+
+            if (error) throw error;
+
+            trashSentences.push(item);
+            doubleWrongSentences.splice(index, 1);
+            updateMainDoubleWrongCount();
+            renderTrashList();
+        } catch (error) {
+            console.error('Error moving to trash:', error);
+        }
+    }
+}
+
 function handleWrong() {
     quizState.wrongAnswers++;
     quizState.sessionWrong.push(currentSentence);
 
-    // 퀴즈 타입에 따라 다른 목록에 추가
-    if (quizState.isWrongQuiz) {
+    // 퀴즈 타입에 따라 다른 목록에 추가/이동
+    if (quizState.isDoubleWrongQuiz) {
+        // 또 틀린 문장 테스트에서 모르겠어요 → 휴지통으로 이동
+        moveToTrashFromDoubleWrong(currentSentence);
+    } else if (quizState.isWrongQuiz) {
         // 틀린 문장 테스트에서 또 틀렸으면 → 또 틀린 문장에 추가
         addToDoubleWrongList(currentSentence);
-    } else if (!quizState.isDoubleWrongQuiz) {
+    } else {
         // 전체 테스트에서 틀렸으면 → 틀린 문장에 추가
         addToWrongList(currentSentence);
     }
