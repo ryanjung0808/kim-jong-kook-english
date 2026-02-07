@@ -1,7 +1,7 @@
 {
-  "name": "김종국 영어 학습법",
-  "short_name": "영어학습",
-  "description": "한글 문장을 보고 영어 문장을 암기하는 학습 앱",
+  "name": "김종국 단어장",
+  "short_name": "단어장",
+  "description": "한글 문장을 보고 영어 소리를 암기하는 학습 앱",
   "icons": [
     {
       "src": "icon-192.png",
