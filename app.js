@@ -863,34 +863,25 @@ async function removeFromDoubleWrongList(sentence) {
 
 // 휴지통으로 이동 (카테고리 변경)
 async function moveToTrashFromDoubleWrong(sentence) {
-    console.log('moveToTrashFromDoubleWrong called with:', sentence);
-    console.log('doubleWrongSentences:', doubleWrongSentences);
-
     const index = doubleWrongSentences.findIndex(s => s.korean === sentence.korean && s.english === sentence.english);
-    console.log('Found index:', index);
 
     if (index !== -1) {
         const item = doubleWrongSentences[index];
-        console.log('Item to move:', item);
         try {
             const { error } = await db
                 .from('kor_eng')
                 .update({ category: 'trash' })
                 .eq('id', item.id);
 
-            console.log('DB update error:', error);
             if (error) throw error;
 
             trashSentences.push(item);
             doubleWrongSentences.splice(index, 1);
             updateMainDoubleWrongCount();
             renderTrashList();
-            console.log('Successfully moved to trash');
         } catch (error) {
             console.error('Error moving to trash:', error);
         }
-    } else {
-        console.log('Sentence not found in doubleWrongSentences!');
     }
 }
 
