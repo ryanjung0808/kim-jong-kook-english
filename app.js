@@ -739,17 +739,17 @@ function showAnswer() {
 }
 
 // 정답 처리
-function handleCorrect() {
+async function handleCorrect() {
     quizState.correctAnswers++;
 
     // 퀴즈 타입에 따라 문장 이동
     if (quizState.isWrongQuiz) {
         // 틀린 문장 테스트에서 알았어요 → wrong에서 삭제 (일반으로 복귀)
-        removeFromWrongList(currentSentence);
+        await removeFromWrongList(currentSentence);
     } else if (quizState.isDoubleWrongQuiz) {
         // 또 틀린 문장 테스트에서 알았어요 → double_wrong에서 삭제하고 wrong으로 이동
-        removeFromDoubleWrongList(currentSentence);
-        addToWrongList(currentSentence);
+        await removeFromDoubleWrongList(currentSentence);
+        await addToWrongList(currentSentence);
     }
 
     quizState.currentIndex++;
@@ -877,20 +877,20 @@ async function moveToTrashFromDoubleWrong(sentence) {
     }
 }
 
-function handleWrong() {
+async function handleWrong() {
     quizState.wrongAnswers++;
     quizState.sessionWrong.push(currentSentence);
 
     // 퀴즈 타입에 따라 다른 목록에 추가/이동
     if (quizState.isDoubleWrongQuiz) {
         // 또 틀린 문장 테스트에서 모르겠어요 → 휴지통으로 이동
-        moveToTrashFromDoubleWrong(currentSentence);
+        await moveToTrashFromDoubleWrong(currentSentence);
     } else if (quizState.isWrongQuiz) {
         // 틀린 문장 테스트에서 또 틀렸으면 → 또 틀린 문장에 추가
-        addToDoubleWrongList(currentSentence);
+        await addToDoubleWrongList(currentSentence);
     } else {
         // 전체 테스트에서 틀렸으면 → 틀린 문장에 추가
-        addToWrongList(currentSentence);
+        await addToWrongList(currentSentence);
     }
 
     quizState.currentIndex++;
