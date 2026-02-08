@@ -229,6 +229,10 @@ function updateMainWrongCount() {
     } else {
         mainWrongBtn.disabled = false;
     }
+    // 필터가 적용되어 있으면 필터된 카운트 업데이트
+    if (quizFilter.criteria !== 'none') {
+        updateQuizStartBtnLabel();
+    }
 }
 
 // 메인 화면 또 틀린 문장 개수 업데이트
@@ -238,6 +242,10 @@ function updateMainDoubleWrongCount() {
         mainDoubleWrongBtn.disabled = true;
     } else {
         mainDoubleWrongBtn.disabled = false;
+    }
+    // 필터가 적용되어 있으면 필터된 카운트 업데이트
+    if (quizFilter.criteria !== 'none') {
+        updateQuizStartBtnLabel();
     }
 }
 
@@ -1530,11 +1538,24 @@ function applyFilterToSentences(sentenceArray) {
             break;
         case 'all':
         default:
-            return sentenceArray.filter(s => s[dateField]);
+            return sentenceArray.filter(s => {
+                // 날짜가 없으면 원본 문장에서 찾기
+                let date = s[dateField];
+                if (!date) {
+                    const mainSentence = sentences.find(m => m.korean === s.korean && m.english === s.english);
+                    if (mainSentence) date = mainSentence[dateField];
+                }
+                return date;
+            });
     }
 
     return sentenceArray.filter(sentence => {
-        const sentenceDate = sentence[dateField];
+        // 날짜가 없으면 원본 문장에서 찾기
+        let sentenceDate = sentence[dateField];
+        if (!sentenceDate) {
+            const mainSentence = sentences.find(m => m.korean === sentence.korean && m.english === sentence.english);
+            if (mainSentence) sentenceDate = mainSentence[dateField];
+        }
         if (!sentenceDate) return false;
 
         if (startDate && endDate) {
@@ -1555,12 +1576,47 @@ function getFilteredQuizSentences() {
 
 // 퀴즈 시작 버튼 라벨 업데이트
 function updateQuizStartBtnLabel() {
+    // 암기 테스트 시작 버튼 업데이트
     const filteredCount = getFilteredQuizSentences().length;
     const sublabel = quizStartBtn.querySelector('.btn-sublabel');
     if (quizFilter.criteria === 'none') {
         sublabel.textContent = '전체 문장으로 테스트';
     } else {
         sublabel.textContent = `${filteredCount}개 문장으로 테스트`;
+    }
+
+    // 틀린 문장만 테스트 버튼 업데이트
+    const filteredWrongCount = applyFilterToSentences(wrongSentences).length;
+    const wrongSublabel = mainWrongBtn.querySelector('.btn-sublabel');
+    if (wrongSublabel) {
+        if (quizFilter.criteria === 'none') {
+            wrongSublabel.textContent = `${wrongSentences.length}개의 복습할 문장`;
+        } else {
+            wrongSublabel.textContent = `${filteredWrongCount}개의 복습할 문장`;
+        }
+    }
+    // 필터 적용 시 버튼 활성화 상태 업데이트
+    if (quizFilter.criteria === 'none') {
+        mainWrongBtn.disabled = wrongSentences.length === 0;
+    } else {
+        mainWrongBtn.disabled = filteredWrongCount === 0;
+    }
+
+    // 또 틀린 문장 테스트 버튼 업데이트
+    const filteredDoubleWrongCount = applyFilterToSentences(doubleWrongSentences).length;
+    const doubleWrongSublabel = mainDoubleWrongBtn.querySelector('.btn-sublabel');
+    if (doubleWrongSublabel) {
+        if (quizFilter.criteria === 'none') {
+            doubleWrongSublabel.textContent = `${doubleWrongSentences.length}개의 어려운 문장`;
+        } else {
+            doubleWrongSublabel.textContent = `${filteredDoubleWrongCount}개의 어려운 문장`;
+        }
+    }
+    // 필터 적용 시 버튼 활성화 상태 업데이트
+    if (quizFilter.criteria === 'none') {
+        mainDoubleWrongBtn.disabled = doubleWrongSentences.length === 0;
+    } else {
+        mainDoubleWrongBtn.disabled = filteredDoubleWrongCount === 0;
     }
 }
 
@@ -1624,6 +1680,8 @@ async function init() {
         loadDoubleWrongSentences(),
         loadTrash()
     ]);
+    // 초기 필터 상태 반영
+    updateQuizStartBtnLabel();
 }
 
 init();
