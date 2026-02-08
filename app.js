@@ -762,12 +762,20 @@ function startQuizWithWrongFromMain() {
         return;
     }
 
+    // 필터 적용된 틀린 문장 가져오기
+    const filteredWrongSentences = applyFilterToSentences(wrongSentences);
+
+    if (filteredWrongSentences.length === 0) {
+        showError('선택한 기간에 해당하는 틀린 문장이 없습니다.');
+        return;
+    }
+
     quizState = {
         currentIndex: 0,
-        totalQuestions: wrongSentences.length,
+        totalQuestions: filteredWrongSentences.length,
         correctAnswers: 0,
         wrongAnswers: 0,
-        questionPool: [...wrongSentences].sort(() => Math.random() - 0.5),
+        questionPool: [...filteredWrongSentences].sort(() => Math.random() - 0.5),
         sessionWrong: [],
         isWrongQuiz: true,
         isDoubleWrongQuiz: false
@@ -789,12 +797,20 @@ function startQuizWithDoubleWrongFromMain() {
         return;
     }
 
+    // 필터 적용된 또 틀린 문장 가져오기
+    const filteredDoubleWrongSentences = applyFilterToSentences(doubleWrongSentences);
+
+    if (filteredDoubleWrongSentences.length === 0) {
+        showError('선택한 기간에 해당하는 또 틀린 문장이 없습니다.');
+        return;
+    }
+
     quizState = {
         currentIndex: 0,
-        totalQuestions: doubleWrongSentences.length,
+        totalQuestions: filteredDoubleWrongSentences.length,
         correctAnswers: 0,
         wrongAnswers: 0,
-        questionPool: [...doubleWrongSentences].sort(() => Math.random() - 0.5),
+        questionPool: [...filteredDoubleWrongSentences].sort(() => Math.random() - 0.5),
         sessionWrong: [],
         isWrongQuiz: false,
         isDoubleWrongQuiz: true
@@ -1452,10 +1468,10 @@ filterEndDate.addEventListener('input', (e) => {
     updateQuizStartBtnLabel();
 });
 
-// 필터 적용된 문장 수 계산
-function getFilteredQuizSentences() {
+// 필터 적용 함수 (어떤 문장 배열에도 적용 가능)
+function applyFilterToSentences(sentenceArray) {
     if (quizFilter.criteria === 'none') {
-        return sentences;
+        return sentenceArray;
     }
 
     const dateField = quizFilter.criteria === 'created' ? 'created_date' : 'updated_date';
@@ -1514,10 +1530,10 @@ function getFilteredQuizSentences() {
             break;
         case 'all':
         default:
-            return sentences.filter(s => s[dateField]);
+            return sentenceArray.filter(s => s[dateField]);
     }
 
-    return sentences.filter(sentence => {
+    return sentenceArray.filter(sentence => {
         const sentenceDate = sentence[dateField];
         if (!sentenceDate) return false;
 
@@ -1530,6 +1546,11 @@ function getFilteredQuizSentences() {
         }
         return true;
     });
+}
+
+// 필터 적용된 문장 수 계산 (전체 문장)
+function getFilteredQuizSentences() {
+    return applyFilterToSentences(sentences);
 }
 
 // 퀴즈 시작 버튼 라벨 업데이트
