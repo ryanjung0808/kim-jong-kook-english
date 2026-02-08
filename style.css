@@ -1345,6 +1345,18 @@ input:focus-visible {
     margin-left: 4px;
 }
 
+/* Result Random Image */
+.result-image-container {
+    margin-bottom: 20px;
+}
+
+.result-random-image {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: var(--radius-lg);
+    object-fit: contain;
+}
+
 .result-summary {
     display: flex;
     justify-content: center;
