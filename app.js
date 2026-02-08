@@ -85,6 +85,51 @@ const trashCount = document.getElementById('trash-count');
 const trashEmpty = document.getElementById('trash-empty');
 const emptyTrashBtn = document.getElementById('empty-trash-btn');
 
+// 검색 관련
+const searchInput = document.getElementById('search-input');
+const searchClearBtn = document.getElementById('search-clear-btn');
+const searchTypeBtns = document.querySelectorAll('.search-type-btn');
+let currentSearchType = 'all';
+let currentSearchQuery = '';
+
+// 필터 관련
+const filterToggle = document.getElementById('filter-toggle');
+const filterContent = document.getElementById('filter-content');
+const filterCriteriaBtns = document.querySelectorAll('.filter-criteria-btn');
+const filterPeriodBtns = document.querySelectorAll('.filter-period-btn');
+const periodFilterGroup = document.getElementById('period-filter-group');
+const customDateInputs = document.getElementById('custom-date-inputs');
+const filterStartDate = document.getElementById('filter-start-date');
+const filterEndDate = document.getElementById('filter-end-date');
+
+let quizFilter = {
+    criteria: 'none',
+    period: 'all',
+    startDate: null,
+    endDate: null
+};
+
+// 영구 삭제 확인 모달 관련
+const permanentDeleteModal = document.getElementById('permanent-delete-modal');
+const permanentDeleteCancelBtn = document.getElementById('permanent-delete-cancel-btn');
+const permanentDeleteConfirmBtn = document.getElementById('permanent-delete-confirm-btn');
+let pendingPermanentDeleteIndex = null;
+
+// 날짜를 YYYY.MM.DD 형식으로 변환
+function formatDate(dateString) {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}.${month}.${day}`;
+}
+
+// 현재 날짜를 YYYY.MM.DD 형식으로 반환
+function getCurrentDate() {
+    return formatDate(new Date());
+}
+
 // Supabase에서 문장 불러오기
 async function loadSentences() {
     try {
@@ -99,7 +144,9 @@ async function loadSentences() {
         sentences = data.map(row => ({
             id: row.id,
             korean: row.korean,
-            english: row.english
+            english: row.english,
+            created_date: row.created_date || formatDate(row.created_at),
+            updated_date: row.updated_date
         }));
         renderSentenceList();
     } catch (error) {
@@ -352,9 +399,35 @@ function updateScrollHint() {
     }
 }
 
+// 검색 필터 적용된 문장 목록 가져오기
+function getFilteredSentences() {
+    if (!currentSearchQuery) {
+        return sentences;
+    }
+
+    const query = currentSearchQuery.toLowerCase();
+    return sentences.filter((sentence, index) => {
+        // 원본 인덱스 저장
+        sentence._originalIndex = index;
+
+        switch (currentSearchType) {
+            case 'korean':
+                return sentence.korean.toLowerCase().includes(query);
+            case 'english':
+                return sentence.english.toLowerCase().includes(query);
+            case 'all':
+            default:
+                return sentence.korean.toLowerCase().includes(query) ||
+                       sentence.english.toLowerCase().includes(query);
+        }
+    });
+}
+
 // 문장 목록 렌더링
 function renderSentenceList() {
     wordList.innerHTML = '';
+
+    const filteredSentences = getFilteredSentences();
     sentenceCount.textContent = sentences.length;
 
     if (sentences.length === 0) {
@@ -365,20 +438,29 @@ function renderSentenceList() {
         quizStartBtn.disabled = false;
     }
 
-    sentences.forEach((sentence, index) => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-            <span class="word-text">
-                <span class="korean">${escapeHtml(sentence.korean)}</span>
-                <span class="english">${escapeHtml(sentence.english)}</span>
-            </span>
-            <div class="list-buttons">
-                <button class="edit-btn" data-index="${index}" aria-label="${escapeHtml(sentence.korean)} 문장 수정">수정</button>
-                <button class="delete-btn" data-index="${index}" aria-label="${escapeHtml(sentence.korean)} 문장 삭제">삭제</button>
-            </div>
-        `;
-        wordList.appendChild(li);
-    });
+    if (filteredSentences.length === 0 && sentences.length > 0) {
+        // 검색 결과 없음
+        const noResult = document.createElement('li');
+        noResult.className = 'no-search-result';
+        noResult.innerHTML = '<p>검색 결과가 없습니다.</p>';
+        wordList.appendChild(noResult);
+    } else {
+        filteredSentences.forEach((sentence) => {
+            const originalIndex = sentence._originalIndex !== undefined ? sentence._originalIndex : sentences.indexOf(sentence);
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span class="word-text">
+                    <span class="korean">${escapeHtml(sentence.korean)}</span>
+                    <span class="english">${escapeHtml(sentence.english)}</span>
+                </span>
+                <div class="list-buttons">
+                    <button class="edit-btn" data-index="${originalIndex}" aria-label="${escapeHtml(sentence.korean)} 문장 수정">수정</button>
+                    <button class="delete-btn" data-index="${originalIndex}" aria-label="${escapeHtml(sentence.korean)} 문장 삭제">삭제</button>
+                </div>
+            `;
+            wordList.appendChild(li);
+        });
+    }
 
     // 스크롤 힌트 업데이트
     setTimeout(updateScrollHint, 100);
@@ -446,7 +528,7 @@ function showDeleteConfirm(index) {
         });
     }
 
-    modal.querySelector('#modal-desc').textContent = `"${sentence.korean}" 문장을 삭제할까요?`;
+    modal.querySelector('#modal-desc').innerHTML = `해당 문장을 삭제할까요?<br>삭제 시 휴지통으로 이동됩니다.`;
     modal.classList.add('visible');
     modal.querySelector('.modal-cancel').focus();
 }
@@ -502,17 +584,18 @@ async function saveEdit() {
     const sentence = sentences[pendingEditIndex];
     const oldKorean = sentence.korean;
     const oldEnglish = sentence.english;
+    const currentDate = getCurrentDate();
 
     try {
         // 메인 문장 업데이트
         const { error } = await db
             .from('kor_eng')
-            .update({ korean, english })
+            .update({ korean, english, updated_date: currentDate })
             .eq('id', sentence.id);
 
         if (error) throw error;
 
-        sentences[pendingEditIndex] = { ...sentence, korean, english };
+        sentences[pendingEditIndex] = { ...sentence, korean, english, updated_date: currentDate };
 
         // wrongSentences에서 동일한 문장 찾아서 업데이트
         const wrongIndex = wrongSentences.findIndex(s => s.korean === oldKorean && s.english === oldEnglish);
@@ -589,9 +672,10 @@ async function addSentence() {
     englishInput.classList.remove('error');
 
     try {
+        const currentDate = getCurrentDate();
         const { data, error } = await db
             .from('kor_eng')
-            .insert([{ korean, english, category: 'main' }])
+            .insert([{ korean, english, category: 'main', created_date: currentDate }])
             .select();
 
         if (error) throw error;
@@ -599,7 +683,9 @@ async function addSentence() {
         sentences.push({
             id: data[0].id,
             korean: data[0].korean,
-            english: data[0].english
+            english: data[0].english,
+            created_date: currentDate,
+            updated_date: null
         });
         renderSentenceList();
 
@@ -633,20 +719,28 @@ async function deleteSentence(index) {
     }
 }
 
-// 퀴즈 시작 (전체)
+// 퀴즈 시작 (전체 또는 필터 적용)
 function startQuiz() {
     if (sentences.length === 0) {
         showError('먼저 문장을 추가해주세요.');
         return;
     }
 
+    // 필터 적용된 문장 가져오기
+    const filteredSentences = getFilteredQuizSentences();
+
+    if (filteredSentences.length === 0) {
+        showError('선택한 기간에 해당하는 문장이 없습니다.');
+        return;
+    }
+
     // 퀴즈 상태 초기화
     quizState = {
         currentIndex: 0,
-        totalQuestions: sentences.length,
+        totalQuestions: filteredSentences.length,
         correctAnswers: 0,
         wrongAnswers: 0,
-        questionPool: [...sentences].sort(() => Math.random() - 0.5),
+        questionPool: [...filteredSentences].sort(() => Math.random() - 0.5),
         sessionWrong: [],
         isWrongQuiz: false,
         isDoubleWrongQuiz: false
@@ -1181,6 +1275,7 @@ async function handleExcelUpload(e) {
             let addedCount = 0;
             let skippedCount = 0;
             const newSentences = [];
+            const currentDate = getCurrentDate();
 
             // 각 행을 문장으로 추가
             for (const row of jsonData) {
@@ -1194,7 +1289,7 @@ async function handleExcelUpload(e) {
                     );
 
                     if (!isDuplicate) {
-                        newSentences.push({ korean, english, category: 'main' });
+                        newSentences.push({ korean, english, category: 'main', created_date: currentDate });
                         addedCount++;
                     } else {
                         skippedCount++;
@@ -1214,7 +1309,9 @@ async function handleExcelUpload(e) {
                     sentences.push({
                         id: row.id,
                         korean: row.korean,
-                        english: row.english
+                        english: row.english,
+                        created_date: row.created_date || currentDate,
+                        updated_date: null
                     });
                 });
 
@@ -1251,14 +1348,250 @@ editEnglishInput.addEventListener('keypress', (e) => {
 
 // 휴지통 이벤트
 trashToggle.addEventListener('click', toggleTrash);
-emptyTrashBtn.addEventListener('click', emptyTrash);
+emptyTrashBtn.addEventListener('click', showEmptyTrashConfirm);
 trashList.addEventListener('click', async (e) => {
     if (e.target.classList.contains('restore-btn')) {
         const index = parseInt(e.target.dataset.index);
         await restoreFromTrash(index);
     } else if (e.target.classList.contains('permanent-delete-btn')) {
         const index = parseInt(e.target.dataset.index);
-        await permanentDelete(index);
+        showPermanentDeleteConfirm(index);
+    }
+});
+
+// 검색 이벤트
+searchInput.addEventListener('input', (e) => {
+    currentSearchQuery = e.target.value.trim();
+    searchClearBtn.hidden = !currentSearchQuery;
+    renderSentenceList();
+});
+
+searchClearBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    currentSearchQuery = '';
+    searchClearBtn.hidden = true;
+    renderSentenceList();
+    searchInput.focus();
+});
+
+searchTypeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        searchTypeBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSearchType = btn.dataset.type;
+        renderSentenceList();
+    });
+});
+
+// 필터 토글
+filterToggle.addEventListener('click', () => {
+    const isExpanded = filterToggle.getAttribute('aria-expanded') === 'true';
+    filterToggle.setAttribute('aria-expanded', !isExpanded);
+    filterContent.hidden = isExpanded;
+});
+
+// 필터 기준 선택
+filterCriteriaBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        filterCriteriaBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        quizFilter.criteria = btn.dataset.criteria;
+
+        if (quizFilter.criteria === 'none') {
+            periodFilterGroup.style.display = 'none';
+        } else {
+            periodFilterGroup.style.display = 'block';
+        }
+        updateQuizStartBtnLabel();
+    });
+});
+
+// 필터 기간 선택
+filterPeriodBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        filterPeriodBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        quizFilter.period = btn.dataset.period;
+
+        if (quizFilter.period === 'custom') {
+            customDateInputs.style.display = 'flex';
+        } else {
+            customDateInputs.style.display = 'none';
+        }
+        updateQuizStartBtnLabel();
+    });
+});
+
+// 날짜 입력 포맷팅 (YYYY.MM.DD)
+function formatDateInput(input) {
+    let value = input.value.replace(/[^\d]/g, '');
+    if (value.length > 8) value = value.slice(0, 8);
+
+    let formatted = '';
+    if (value.length > 4) {
+        formatted = value.slice(0, 4) + '.' + value.slice(4);
+        if (value.length > 6) {
+            formatted = value.slice(0, 4) + '.' + value.slice(4, 6) + '.' + value.slice(6);
+        }
+    } else {
+        formatted = value;
+    }
+
+    input.value = formatted;
+}
+
+filterStartDate.addEventListener('input', (e) => {
+    formatDateInput(e.target);
+    quizFilter.startDate = e.target.value;
+    updateQuizStartBtnLabel();
+});
+
+filterEndDate.addEventListener('input', (e) => {
+    formatDateInput(e.target);
+    quizFilter.endDate = e.target.value;
+    updateQuizStartBtnLabel();
+});
+
+// 필터 적용된 문장 수 계산
+function getFilteredQuizSentences() {
+    if (quizFilter.criteria === 'none') {
+        return sentences;
+    }
+
+    const dateField = quizFilter.criteria === 'created' ? 'created_date' : 'updated_date';
+    let startDate, endDate;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    switch (quizFilter.period) {
+        case 'today':
+            startDate = endDate = formatDate(today);
+            break;
+        case 'yesterday':
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            startDate = endDate = formatDate(yesterday);
+            break;
+        case '3days':
+            const threeDaysAgo = new Date(today);
+            threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+            startDate = formatDate(threeDaysAgo);
+            endDate = formatDate(today);
+            break;
+        case 'week':
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            startDate = formatDate(weekAgo);
+            endDate = formatDate(today);
+            break;
+        case '1month':
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+            startDate = formatDate(monthAgo);
+            endDate = formatDate(today);
+            break;
+        case '2months':
+            const twoMonthsAgo = new Date(today);
+            twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+            startDate = formatDate(twoMonthsAgo);
+            endDate = formatDate(today);
+            break;
+        case '3months':
+            const threeMonthsAgo = new Date(today);
+            threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+            startDate = formatDate(threeMonthsAgo);
+            endDate = formatDate(today);
+            break;
+        case '6months':
+            const sixMonthsAgo = new Date(today);
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            startDate = formatDate(sixMonthsAgo);
+            endDate = formatDate(today);
+            break;
+        case 'custom':
+            startDate = quizFilter.startDate;
+            endDate = quizFilter.endDate;
+            break;
+        case 'all':
+        default:
+            return sentences.filter(s => s[dateField]);
+    }
+
+    return sentences.filter(sentence => {
+        const sentenceDate = sentence[dateField];
+        if (!sentenceDate) return false;
+
+        if (startDate && endDate) {
+            return sentenceDate >= startDate && sentenceDate <= endDate;
+        } else if (startDate) {
+            return sentenceDate >= startDate;
+        } else if (endDate) {
+            return sentenceDate <= endDate;
+        }
+        return true;
+    });
+}
+
+// 퀴즈 시작 버튼 라벨 업데이트
+function updateQuizStartBtnLabel() {
+    const filteredCount = getFilteredQuizSentences().length;
+    const sublabel = quizStartBtn.querySelector('.btn-sublabel');
+    if (quizFilter.criteria === 'none') {
+        sublabel.textContent = '전체 문장으로 테스트';
+    } else {
+        sublabel.textContent = `${filteredCount}개 문장으로 테스트`;
+    }
+}
+
+// 영구 삭제 확인 모달 표시
+function showPermanentDeleteConfirm(index) {
+    pendingPermanentDeleteIndex = index;
+    permanentDeleteModal.classList.add('visible');
+    permanentDeleteCancelBtn.focus();
+}
+
+// 영구 삭제 확인 모달 숨기기
+function hidePermanentDeleteConfirm() {
+    permanentDeleteModal.classList.remove('visible');
+    pendingPermanentDeleteIndex = null;
+}
+
+// 영구 삭제 확정
+async function confirmPermanentDelete() {
+    if (pendingPermanentDeleteIndex !== null) {
+        await permanentDelete(pendingPermanentDeleteIndex);
+        hidePermanentDeleteConfirm();
+    }
+}
+
+// 휴지통 비우기 확인
+function showEmptyTrashConfirm() {
+    if (trashSentences.length === 0) return;
+
+    pendingPermanentDeleteIndex = -1; // 전체 삭제를 나타내는 특별한 값
+    permanentDeleteModal.classList.add('visible');
+    permanentDeleteCancelBtn.focus();
+}
+
+// 영구 삭제 확인 이벤트
+permanentDeleteCancelBtn.addEventListener('click', hidePermanentDeleteConfirm);
+permanentDeleteConfirmBtn.addEventListener('click', async () => {
+    if (pendingPermanentDeleteIndex === -1) {
+        // 휴지통 전체 비우기
+        await emptyTrash();
+        hidePermanentDeleteConfirm();
+    } else {
+        await confirmPermanentDelete();
+    }
+});
+permanentDeleteModal.addEventListener('click', (e) => {
+    if (e.target === permanentDeleteModal) hidePermanentDeleteConfirm();
+});
+
+// ESC 키로 영구 삭제 모달 닫기
+document.addEventListener('keydown', (e) => {
+    if (permanentDeleteModal.classList.contains('visible') && e.key === 'Escape') {
+        hidePermanentDeleteConfirm();
     }
 });
 

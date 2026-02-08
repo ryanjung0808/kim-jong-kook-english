@@ -47,10 +47,52 @@
                     </label>
                 </div>
             </div>
-            <p class="upload-hint">* 엑셀 파일: A열에 한글, B열에 영어를 입력하세요</p>
+            <p class="upload-hint">* 엑셀 파일: A열에 한글 문장, B열에 영어 소리를 입력하세요</p>
 
-            <!-- 퀴즈 시작 버튼 -->
+            <!-- 암기 테스트 필터 및 시작 버튼 -->
             <div class="quiz-start-section">
+                <!-- 출제 범위 필터 -->
+                <div class="quiz-filter-section">
+                    <button type="button" id="filter-toggle" class="filter-toggle" aria-expanded="false">
+                        <span class="filter-toggle-text">상세검색 모두보기</span>
+                        <span class="filter-toggle-arrow">▼</span>
+                    </button>
+                    <div id="filter-content" class="filter-content" hidden>
+                        <div class="filter-group">
+                            <label class="filter-label">기준 선택</label>
+                            <div class="filter-criteria-selector">
+                                <button type="button" class="filter-criteria-btn active" data-criteria="none">선택안함</button>
+                                <button type="button" class="filter-criteria-btn" data-criteria="created">문제 등록일자</button>
+                                <button type="button" class="filter-criteria-btn" data-criteria="updated">문제 수정일자</button>
+                            </div>
+                        </div>
+                        <div class="filter-group" id="period-filter-group" style="display: none;">
+                            <label class="filter-label">기간 입력</label>
+                            <div class="filter-period-selector">
+                                <button type="button" class="filter-period-btn active" data-period="all">전체</button>
+                                <button type="button" class="filter-period-btn" data-period="today">오늘</button>
+                                <button type="button" class="filter-period-btn" data-period="yesterday">어제</button>
+                                <button type="button" class="filter-period-btn" data-period="3days">3일</button>
+                                <button type="button" class="filter-period-btn" data-period="week">일주일</button>
+                                <button type="button" class="filter-period-btn" data-period="1month">1개월</button>
+                                <button type="button" class="filter-period-btn" data-period="2months">2개월</button>
+                                <button type="button" class="filter-period-btn" data-period="3months">3개월</button>
+                                <button type="button" class="filter-period-btn" data-period="6months">6개월</button>
+                                <button type="button" class="filter-period-btn" data-period="custom">직접입력</button>
+                            </div>
+                            <div id="custom-date-inputs" class="custom-date-inputs" style="display: none;">
+                                <div class="date-input-group">
+                                    <input type="text" id="filter-start-date" placeholder="YYYY.MM.DD" maxlength="10" aria-label="시작일">
+                                </div>
+                                <span class="date-separator">~</span>
+                                <div class="date-input-group">
+                                    <input type="text" id="filter-end-date" placeholder="YYYY.MM.DD" maxlength="10" aria-label="종료일">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <button id="quiz-start-btn" class="quiz-btn primary-action" aria-describedby="quiz-description">
                     <span class="btn-icon-large">&#9654;</span>
                     <span class="btn-label">암기 테스트 시작</span>
@@ -69,7 +111,35 @@
                 <p id="quiz-description" class="visually-hidden">등록된 문장들로 암기 테스트를 시작합니다</p>
             </div>
 
-            <!-- 휴지통 -->
+            <!-- 문장 목록 -->
+            <div class="word-list-section">
+                <div class="section-header">
+                    <h2 id="list-heading">문장 목록 (<span id="sentence-count">0</span>개)</h2>
+                    <span class="scroll-hint" id="scroll-hint" hidden>스크롤하여 더 보기</span>
+                </div>
+                <!-- 검색 기능 -->
+                <div class="search-section">
+                    <div class="search-type-selector">
+                        <button type="button" class="search-type-btn active" data-type="all">전체</button>
+                        <button type="button" class="search-type-btn" data-type="korean">한글 문장</button>
+                        <button type="button" class="search-type-btn" data-type="english">영어 소리</button>
+                    </div>
+                    <div class="search-input-wrapper">
+                        <input type="text" id="search-input" placeholder="검색어를 입력하세요" aria-label="문장 검색">
+                        <button type="button" id="search-clear-btn" class="search-clear-btn" hidden>✕</button>
+                    </div>
+                </div>
+                <div class="list-container">
+                    <ul id="word-list" aria-labelledby="list-heading" role="list"></ul>
+                </div>
+                <div id="empty-message" class="empty-state" aria-live="polite">
+                    <div class="empty-icon">&#128221;</div>
+                    <p class="empty-title">아직 등록된 문장이 없습니다</p>
+                    <p class="empty-desc">위 입력란에서 학습할 문장을 추가하거나<br>엑셀 파일을 업로드해보세요</p>
+                </div>
+            </div>
+
+            <!-- 휴지통 (메인화면 맨 하단) -->
             <div class="trash-section">
                 <button id="trash-toggle" class="trash-toggle" aria-expanded="false" aria-controls="trash-content">
                     <span class="trash-icon">🗑️</span>
@@ -80,22 +150,6 @@
                     <ul id="trash-list" role="list"></ul>
                     <p id="trash-empty" class="empty-message">휴지통이 비어있습니다.</p>
                     <button id="empty-trash-btn" class="empty-trash-btn">휴지통 비우기</button>
-                </div>
-            </div>
-
-            <!-- 문장 목록 -->
-            <div class="word-list-section">
-                <div class="section-header">
-                    <h2 id="list-heading">문장 목록 (<span id="sentence-count">0</span>개)</h2>
-                    <span class="scroll-hint" id="scroll-hint" hidden>스크롤하여 더 보기</span>
-                </div>
-                <div class="list-container">
-                    <ul id="word-list" aria-labelledby="list-heading" role="list"></ul>
-                </div>
-                <div id="empty-message" class="empty-state" aria-live="polite">
-                    <div class="empty-icon">&#128221;</div>
-                    <p class="empty-title">아직 등록된 문장이 없습니다</p>
-                    <p class="empty-desc">위 입력란에서 학습할 문장을 추가하거나<br>엑셀 파일을 업로드해보세요</p>
                 </div>
             </div>
         </div>
@@ -116,6 +170,22 @@
                     </button>
                     <button class="modal-save" id="edit-save-btn">
                         <span class="modal-btn-icon">&#10003;</span> 저장
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 영구 삭제 확인 모달 -->
+        <div id="permanent-delete-modal" class="modal-overlay" role="dialog" aria-labelledby="permanent-delete-modal-title" aria-modal="true">
+            <div class="modal">
+                <h3 id="permanent-delete-modal-title">영구 삭제</h3>
+                <p id="permanent-delete-modal-desc">이후로는 복원이 불가합니다.<br>정말 삭제하시겠습니까?</p>
+                <div class="modal-buttons">
+                    <button class="modal-cancel" id="permanent-delete-cancel-btn">
+                        <span class="modal-btn-icon">&#10005;</span> 취소
+                    </button>
+                    <button class="modal-confirm" id="permanent-delete-confirm-btn">
+                        <span class="modal-btn-icon">&#128465;</span> 삭제
                     </button>
                 </div>
             </div>
