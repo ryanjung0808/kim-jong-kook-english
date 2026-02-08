@@ -39,6 +39,7 @@ const correctCountEl = document.getElementById('correct-count');
 const wrongCountEl = document.getElementById('wrong-count');
 const wrongListCount = document.getElementById('wrong-list-count');
 const resultScore = document.getElementById('result-score');
+const resultRandomImage = document.getElementById('result-random-image');
 const scrollHint = document.getElementById('scroll-hint');
 const resultMessage = document.getElementById('result-message');
 const retryBtn = document.getElementById('retry-btn');
@@ -1141,10 +1142,21 @@ function showResults() {
     quizSection.style.display = 'none';
     resultSection.style.display = 'block';
 
+    // 랜덤 이미지 표시
+    const imageCount = 27;
+    const randomIndex = Math.floor(Math.random() * imageCount) + 1;
+    resultRandomImage.src = `images/test_done_${randomIndex}.png`;
+
     correctCountEl.textContent = quizState.correctAnswers;
     wrongCountEl.textContent = quizState.wrongAnswers;
 
     const percentage = Math.round((quizState.correctAnswers / quizState.totalQuestions) * 100);
+
+    // 퍼센트 표시
+    const scorePercentEl = resultScore.querySelector('.score-percent');
+    if (scorePercentEl) {
+        scorePercentEl.textContent = percentage;
+    }
 
     let message = '';
     if (percentage === 100) {
