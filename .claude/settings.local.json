@@ -5,7 +5,31 @@
       "mcp__playwright__browser_close",
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_take_screenshot",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh api:*)",
+      "Bash(gh repo view:*)",
+      "Bash(curl:*)",
+      "mcp__github__create_or_update_file",
+      "mcp__github__search_repositories",
+      "mcp__github__get_me",
+      "Bash(open \"https://github.com/ryanjung0808/kim-jong-kook-english/settings/pages\")",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__apply_migration",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_evaluate",
+      "Bash(cd:*)",
+      "mcp__github__list_commits",
+      "mcp__playwright__browser_wait_for",
+      "mcp__github__get_file_contents",
+      "mcp__playwright__browser_press_key",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:ryanjung0808.github.io)",
+      "mcp__playwright__browser_install",
+      "mcp__github__list_branches",
+      "Bash(git restore:*)"
     ]
   }
 }
