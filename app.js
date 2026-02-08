@@ -1171,6 +1171,9 @@ function showResults() {
 
     resultMessage.textContent = message;
 
+    // 학습 기록 저장
+    saveQuizHistory(quizState.correctAnswers, quizState.wrongAnswers, quizState.totalQuestions);
+
     // 틀린 문장 목록 표시
     renderWrongList();
 
@@ -1198,6 +1201,7 @@ function backToMain() {
     mainSection.style.display = 'block';
     updateMainWrongCount();
     updateMainDoubleWrongCount();
+    renderStatsChart(); // 통계 업데이트
     koreanInput.focus();
 }
 
@@ -1684,6 +1688,153 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// ===================================
+// 학습 통계 관련
+// ===================================
+const statsChart = document.getElementById('stats-chart');
+const statsEmpty = document.getElementById('stats-empty');
+const statsTotalTests = document.getElementById('stats-total-tests');
+const statsTotalQuestions = document.getElementById('stats-total-questions');
+const statsAvgAccuracy = document.getElementById('stats-avg-accuracy');
+const statsPeriodBtns = document.querySelectorAll('.stats-period-btn');
+
+let currentStatsPeriod = 'week'; // 'week' or 'month'
+
+// 학습 기록 저장 (localStorage)
+function saveQuizHistory(correct, wrong, total) {
+    const history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+    const today = getCurrentDate();
+
+    history.push({
+        date: today,
+        correct: correct,
+        wrong: wrong,
+        total: total,
+        accuracy: total > 0 ? Math.round((correct / total) * 100) : 0,
+        timestamp: Date.now()
+    });
+
+    // 최대 90일치만 보관
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const cutoffDate = formatDate(ninetyDaysAgo);
+
+    const filteredHistory = history.filter(h => h.date >= cutoffDate);
+    localStorage.setItem('quizHistory', JSON.stringify(filteredHistory));
+}
+
+// 학습 기록 불러오기
+function getQuizHistory(days = 7) {
+    const history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoff = formatDate(cutoffDate);
+
+    return history.filter(h => h.date >= cutoff);
+}
+
+// 일별 통계 계산
+function getDailyStats(days = 7) {
+    const history = getQuizHistory(days);
+    const dailyMap = {};
+
+    // 날짜별로 그룹화
+    history.forEach(h => {
+        if (!dailyMap[h.date]) {
+            dailyMap[h.date] = { tests: 0, correct: 0, total: 0 };
+        }
+        dailyMap[h.date].tests++;
+        dailyMap[h.date].correct += h.correct;
+        dailyMap[h.date].total += h.total;
+    });
+
+    // 최근 n일의 날짜 배열 생성
+    const dates = [];
+    for (let i = days - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        dates.push(formatDate(d));
+    }
+
+    return dates.map(date => {
+        const stats = dailyMap[date] || { tests: 0, correct: 0, total: 0 };
+        return {
+            date: date,
+            label: date.slice(5).replace('.', '/'), // MM/DD 형식
+            tests: stats.tests,
+            accuracy: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+            total: stats.total
+        };
+    });
+}
+
+// 통계 요약 계산
+function getStatsSummary(days = 7) {
+    const history = getQuizHistory(days);
+
+    const totalTests = history.length;
+    const totalQuestions = history.reduce((sum, h) => sum + h.total, 0);
+    const totalCorrect = history.reduce((sum, h) => sum + h.correct, 0);
+    const avgAccuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+
+    return { totalTests, totalQuestions, avgAccuracy };
+}
+
+// 통계 차트 렌더링
+function renderStatsChart() {
+    const days = currentStatsPeriod === 'week' ? 7 : 30;
+    const dailyStats = getDailyStats(days);
+    const summary = getStatsSummary(days);
+
+    // 요약 업데이트
+    statsTotalTests.textContent = summary.totalTests;
+    statsTotalQuestions.textContent = summary.totalQuestions;
+    statsAvgAccuracy.textContent = summary.avgAccuracy + '%';
+
+    // 차트가 비어있는지 확인
+    const hasData = dailyStats.some(d => d.total > 0);
+
+    if (!hasData) {
+        statsChart.style.display = 'none';
+        statsEmpty.style.display = 'block';
+        return;
+    }
+
+    statsChart.style.display = 'flex';
+    statsEmpty.style.display = 'none';
+
+    // 최대값 계산 (차트 스케일링용)
+    const maxAccuracy = 100;
+
+    // 7일일 때는 모든 날짜 표시, 30일일 때는 5일 간격으로 표시
+    const showEvery = days === 7 ? 1 : 5;
+
+    statsChart.innerHTML = dailyStats.map((day, index) => {
+        const barHeight = day.total > 0 ? Math.max((day.accuracy / maxAccuracy) * 100, 5) : 0;
+        const showLabel = days === 7 || index % showEvery === 0 || index === dailyStats.length - 1;
+        const dataValue = day.total > 0 ? day.accuracy + '%' : '';
+
+        return `
+            <div class="stats-bar-group">
+                <div class="stats-bar-wrapper">
+                    ${day.total > 0 ? `<div class="stats-bar" style="height: ${barHeight}%" data-value="${dataValue}"></div>` : ''}
+                </div>
+                <div class="stats-bar-label">${showLabel ? day.label : ''}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 통계 기간 선택 이벤트
+statsPeriodBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        statsPeriodBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentStatsPeriod = btn.dataset.period;
+        renderStatsChart();
+    });
+});
+
 // 초기화
 async function init() {
     await Promise.all([
@@ -1694,6 +1845,8 @@ async function init() {
     ]);
     // 초기 필터 상태 반영
     updateQuizStartBtnLabel();
+    // 통계 렌더링
+    renderStatsChart();
 }
 
 init();
