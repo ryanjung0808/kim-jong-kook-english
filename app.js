@@ -332,6 +332,30 @@ async function moveToTrash(index) {
 // 복원
 async function restoreFromTrash(index) {
     const sentence = trashSentences[index];
+
+    // 이미 같은 문장이 main에 있는지 확인 (중복 방지)
+    const isDuplicate = sentences.some(s => s.korean === sentence.korean && s.english === sentence.english);
+
+    if (isDuplicate) {
+        // 중복이면 휴지통에서만 삭제 (DB에서도 삭제)
+        try {
+            const { error } = await db
+                .from('kor_eng')
+                .delete()
+                .eq('id', sentence.id);
+
+            if (error) throw error;
+
+            trashSentences.splice(index, 1);
+            renderTrashList();
+            showToast('이미 존재하는 문장이라 휴지통에서 삭제되었습니다.');
+        } catch (error) {
+            console.error('Error deleting duplicate from trash:', error);
+            showError('삭제 중 오류가 발생했습니다.');
+        }
+        return;
+    }
+
     try {
         const { error } = await db
             .from('kor_eng')
