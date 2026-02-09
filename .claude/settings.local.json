@@ -29,7 +29,8 @@
       "WebFetch(domain:ryanjung0808.github.io)",
       "mcp__playwright__browser_install",
       "mcp__github__list_branches",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(git fetch:*)"
     ]
   }
 }

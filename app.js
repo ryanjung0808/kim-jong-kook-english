@@ -105,7 +105,7 @@ const filterEndDate = document.getElementById('filter-end-date');
 
 let quizFilter = {
     criteria: 'none',
-    period: 'all',
+    period: 'today',
     startDate: null,
     endDate: null
 };
@@ -1536,15 +1536,26 @@ function applyFilterToSentences(sentenceArray) {
             yesterday.setDate(yesterday.getDate() - 1);
             startDate = endDate = formatDate(yesterday);
             break;
+        case '2daysago':
+            const twoDaysAgo = new Date(today);
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+            startDate = endDate = formatDate(twoDaysAgo);
+            break;
         case '3days':
             const threeDaysAgo = new Date(today);
-            threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+            threeDaysAgo.setDate(threeDaysAgo.getDate() - 2);
             startDate = formatDate(threeDaysAgo);
+            endDate = formatDate(today);
+            break;
+        case '5days':
+            const fiveDaysAgo = new Date(today);
+            fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 4);
+            startDate = formatDate(fiveDaysAgo);
             endDate = formatDate(today);
             break;
         case 'week':
             const weekAgo = new Date(today);
-            weekAgo.setDate(weekAgo.getDate() - 7);
+            weekAgo.setDate(weekAgo.getDate() - 6);
             startDate = formatDate(weekAgo);
             endDate = formatDate(today);
             break;
@@ -1554,39 +1565,13 @@ function applyFilterToSentences(sentenceArray) {
             startDate = formatDate(monthAgo);
             endDate = formatDate(today);
             break;
-        case '2months':
-            const twoMonthsAgo = new Date(today);
-            twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-            startDate = formatDate(twoMonthsAgo);
-            endDate = formatDate(today);
-            break;
-        case '3months':
-            const threeMonthsAgo = new Date(today);
-            threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-            startDate = formatDate(threeMonthsAgo);
-            endDate = formatDate(today);
-            break;
-        case '6months':
-            const sixMonthsAgo = new Date(today);
-            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-            startDate = formatDate(sixMonthsAgo);
-            endDate = formatDate(today);
-            break;
         case 'custom':
             startDate = quizFilter.startDate;
             endDate = quizFilter.endDate;
             break;
-        case 'all':
         default:
-            return sentenceArray.filter(s => {
-                // 날짜가 없으면 원본 문장에서 찾기
-                let date = s[dateField];
-                if (!date) {
-                    const mainSentence = sentences.find(m => m.korean === s.korean && m.english === s.english);
-                    if (mainSentence) date = mainSentence[dateField];
-                }
-                return date;
-            });
+            startDate = endDate = formatDate(today);
+            break;
     }
 
     return sentenceArray.filter(sentence => {
