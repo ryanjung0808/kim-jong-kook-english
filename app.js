@@ -1812,6 +1812,13 @@ function renderStatsChart() {
     statsChart.style.display = 'flex';
     statsEmpty.style.display = 'none';
 
+    // 30일일 때 monthly 클래스 추가
+    if (days === 30) {
+        statsChart.classList.add('monthly');
+    } else {
+        statsChart.classList.remove('monthly');
+    }
+
     // 최대값 계산 (차트 스케일링용)
     const maxAccuracy = 100;
 

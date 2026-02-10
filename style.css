@@ -1787,7 +1787,11 @@ input:focus-visible {
     align-items: flex-end;
     justify-content: space-between;
     height: 120px;
-    gap: 8px;
+    gap: 4px;
+}
+
+.stats-chart.monthly {
+    gap: 2px;
 }
 
 .stats-bar-group {
@@ -1815,6 +1819,14 @@ input:focus-visible {
     min-height: 4px;
     transition: height 0.3s ease;
     position: relative;
+}
+
+.stats-chart.monthly .stats-bar {
+    max-width: 12px;
+}
+
+.stats-chart.monthly .stats-bar::before {
+    display: none;
 }
 
 .stats-bar::before {
