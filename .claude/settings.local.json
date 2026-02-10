@@ -30,7 +30,8 @@
       "mcp__playwright__browser_install",
       "mcp__github__list_branches",
       "Bash(git restore:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "mcp__playwright__browser_console_messages"
     ]
   }
 }
