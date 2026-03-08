@@ -4,6 +4,27 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// 현재 로그인한 사용자
+let currentUser = null;
+
+// 인증 관련 DOM 요소
+const authSection = document.getElementById('auth-section');
+const loginForm = document.getElementById('login-form');
+const signupForm = document.getElementById('signup-form');
+const authTabs = document.querySelectorAll('.auth-tab');
+const loginEmailInput = document.getElementById('login-email');
+const loginPasswordInput = document.getElementById('login-password');
+const loginBtn = document.getElementById('login-btn');
+const loginError = document.getElementById('login-error');
+const signupEmailInput = document.getElementById('signup-email');
+const signupPasswordInput = document.getElementById('signup-password');
+const signupPasswordConfirmInput = document.getElementById('signup-password-confirm');
+const signupBtn = document.getElementById('signup-btn');
+const signupError = document.getElementById('signup-error');
+const signupSuccess = document.getElementById('signup-success');
+const userEmailDisplay = document.getElementById('user-email');
+const logoutBtn = document.getElementById('logout-btn');
+
 // DOM 요소
 const koreanInput = document.getElementById('korean-input');
 const englishInput = document.getElementById('english-input');
@@ -133,11 +154,14 @@ function getCurrentDate() {
 
 // Supabase에서 문장 불러오기
 async function loadSentences() {
+    if (!currentUser) return;
+
     try {
         const { data, error } = await db
             .from('kor_eng')
             .select('*')
             .eq('category', 'main')
+            .eq('user_id', currentUser.id)
             .order('created_at', { ascending: true });
 
         if (error) throw error;
@@ -158,11 +182,14 @@ async function loadSentences() {
 
 // Supabase에서 틀린 문장 불러오기
 async function loadWrongSentences() {
+    if (!currentUser) return;
+
     try {
         const { data, error } = await db
             .from('kor_eng')
             .select('*')
             .eq('category', 'wrong')
+            .eq('user_id', currentUser.id)
             .order('created_at', { ascending: true });
 
         if (error) throw error;
@@ -180,11 +207,14 @@ async function loadWrongSentences() {
 
 // Supabase에서 또 틀린 문장 불러오기
 async function loadDoubleWrongSentences() {
+    if (!currentUser) return;
+
     try {
         const { data, error } = await db
             .from('kor_eng')
             .select('*')
             .eq('category', 'double_wrong')
+            .eq('user_id', currentUser.id)
             .order('created_at', { ascending: true });
 
         if (error) throw error;
@@ -202,11 +232,14 @@ async function loadDoubleWrongSentences() {
 
 // Supabase에서 휴지통 불러오기
 async function loadTrash() {
+    if (!currentUser) return;
+
     try {
         const { data, error } = await db
             .from('kor_eng')
             .select('*')
             .eq('category', 'trash')
+            .eq('user_id', currentUser.id)
             .order('created_at', { ascending: true });
 
         if (error) throw error;
@@ -708,7 +741,7 @@ async function addSentence() {
         const currentDate = getCurrentDate();
         const { data, error } = await db
             .from('kor_eng')
-            .insert([{ korean, english, category: 'main', created_date: currentDate }])
+            .insert([{ korean, english, category: 'main', created_date: currentDate, user_id: currentUser.id }])
             .select();
 
         if (error) throw error;
@@ -971,7 +1004,7 @@ async function addToWrongList(sentence) {
         try {
             const { data, error } = await db
                 .from('kor_eng')
-                .insert([{ korean: sentence.korean, english: sentence.english, category: 'wrong' }])
+                .insert([{ korean: sentence.korean, english: sentence.english, category: 'wrong', user_id: currentUser.id }])
                 .select();
 
             if (error) throw error;
@@ -999,7 +1032,7 @@ async function addToDoubleWrongList(sentence) {
         try {
             const { data, error } = await db
                 .from('kor_eng')
-                .insert([{ korean: sentence.korean, english: sentence.english, category: 'double_wrong' }])
+                .insert([{ korean: sentence.korean, english: sentence.english, category: 'double_wrong', user_id: currentUser.id }])
                 .select();
 
             if (error) throw error;
@@ -1353,7 +1386,7 @@ async function handleExcelUpload(e) {
                     );
 
                     if (!isDuplicate) {
-                        newSentences.push({ korean, english, category: 'main', created_date: currentDate });
+                        newSentences.push({ korean, english, category: 'main', created_date: currentDate, user_id: currentUser.id });
                         addedCount++;
                     } else {
                         skippedCount++;
@@ -1851,8 +1884,218 @@ statsPeriodBtns.forEach(btn => {
     });
 });
 
+// ===================================
+// 인증 관련
+// ===================================
+
+// 인증 탭 전환
+authTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        const tabType = tab.dataset.tab;
+        authTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        if (tabType === 'login') {
+            loginForm.hidden = false;
+            signupForm.hidden = true;
+        } else {
+            loginForm.hidden = true;
+            signupForm.hidden = false;
+        }
+
+        // 에러/성공 메시지 초기화
+        loginError.hidden = true;
+        signupError.hidden = true;
+        signupSuccess.hidden = true;
+    });
+});
+
+// 회원가입
+async function signUp() {
+    const email = signupEmailInput.value.trim();
+    const password = signupPasswordInput.value;
+    const passwordConfirm = signupPasswordConfirmInput.value;
+
+    // 입력 검증
+    if (!email || !password || !passwordConfirm) {
+        showAuthError(signupError, '모든 필드를 입력해주세요.');
+        return;
+    }
+
+    if (password.length < 6) {
+        showAuthError(signupError, '비밀번호는 6자 이상이어야 합니다.');
+        return;
+    }
+
+    if (password !== passwordConfirm) {
+        showAuthError(signupError, '비밀번호가 일치하지 않습니다.');
+        return;
+    }
+
+    signupBtn.disabled = true;
+    signupBtn.textContent = '가입 중...';
+
+    try {
+        const { data, error } = await db.auth.signUp({
+            email: email,
+            password: password
+        });
+
+        if (error) throw error;
+
+        signupError.hidden = true;
+        signupSuccess.hidden = false;
+        signupSuccess.textContent = '회원가입 완료! 로그인해주세요.';
+
+        // 입력 필드 초기화
+        signupEmailInput.value = '';
+        signupPasswordInput.value = '';
+        signupPasswordConfirmInput.value = '';
+
+        // 2초 후 로그인 탭으로 전환
+        setTimeout(() => {
+            authTabs[0].click();
+            loginEmailInput.value = email;
+        }, 1500);
+
+    } catch (error) {
+        console.error('Signup error:', error);
+        let message = '회원가입 중 오류가 발생했습니다.';
+        if (error.message.includes('already registered')) {
+            message = '이미 가입된 이메일입니다.';
+        }
+        showAuthError(signupError, message);
+    } finally {
+        signupBtn.disabled = false;
+        signupBtn.textContent = '회원가입';
+    }
+}
+
+// 로그인
+async function signIn() {
+    const email = loginEmailInput.value.trim();
+    const password = loginPasswordInput.value;
+
+    if (!email || !password) {
+        showAuthError(loginError, '이메일과 비밀번호를 입력해주세요.');
+        return;
+    }
+
+    loginBtn.disabled = true;
+    loginBtn.textContent = '로그인 중...';
+
+    try {
+        const { data, error } = await db.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+
+        if (error) throw error;
+
+        currentUser = data.user;
+        showMainSection();
+
+    } catch (error) {
+        console.error('Login error:', error);
+        let message = '로그인 중 오류가 발생했습니다.';
+        if (error.message.includes('Invalid login credentials')) {
+            message = '이메일 또는 비밀번호가 올바르지 않습니다.';
+        }
+        showAuthError(loginError, message);
+    } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = '로그인';
+    }
+}
+
+// 로그아웃
+async function signOut() {
+    try {
+        await db.auth.signOut();
+        currentUser = null;
+        showAuthSection();
+
+        // 데이터 초기화
+        sentences = [];
+        wrongSentences = [];
+        doubleWrongSentences = [];
+        trashSentences = [];
+        renderSentenceList();
+
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
+}
+
+// 인증 상태 확인
+async function checkAuth() {
+    try {
+        const { data: { session } } = await db.auth.getSession();
+
+        if (session) {
+            currentUser = session.user;
+            showMainSection();
+            return true;
+        } else {
+            showAuthSection();
+            return false;
+        }
+    } catch (error) {
+        console.error('Auth check error:', error);
+        showAuthSection();
+        return false;
+    }
+}
+
+// 인증 에러 표시
+function showAuthError(element, message) {
+    element.textContent = message;
+    element.hidden = false;
+}
+
+// 메인 섹션 표시
+async function showMainSection() {
+    authSection.hidden = true;
+    mainSection.hidden = false;
+    userEmailDisplay.textContent = currentUser?.email || '';
+
+    // 입력 필드 초기화
+    loginEmailInput.value = '';
+    loginPasswordInput.value = '';
+    loginError.hidden = true;
+
+    // 사용자 데이터 로드
+    await loadUserData();
+}
+
+// 인증 섹션 표시
+function showAuthSection() {
+    authSection.hidden = false;
+    mainSection.hidden = true;
+}
+
+// 인증 이벤트 리스너
+loginBtn.addEventListener('click', signIn);
+signupBtn.addEventListener('click', signUp);
+logoutBtn.addEventListener('click', signOut);
+
+// 엔터키로 로그인/회원가입
+loginPasswordInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') signIn();
+});
+
+signupPasswordConfirmInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') signUp();
+});
+
 // 초기화
 async function init() {
+    // 인증 상태 확인 (checkAuth에서 showMainSection 호출 시 loadUserData도 호출됨)
+    await checkAuth();
+}
+
+// 사용자 데이터 로드
+async function loadUserData() {
     await Promise.all([
         loadSentences(),
         loadWrongSentences(),
