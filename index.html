@@ -23,8 +23,55 @@
     <div class="container" role="main">
         <h1 id="app-title">Jong Kook's Vocabulary</h1>
 
+        <!-- 로그인/회원가입 화면 -->
+        <div id="auth-section" class="auth-section">
+            <div class="auth-tabs">
+                <button type="button" class="auth-tab active" data-tab="login">로그인</button>
+                <button type="button" class="auth-tab" data-tab="signup">회원가입</button>
+            </div>
+
+            <!-- 로그인 폼 -->
+            <div id="login-form" class="auth-form">
+                <div class="auth-input-group">
+                    <label for="login-email">이메일</label>
+                    <input type="email" id="login-email" placeholder="example@email.com">
+                </div>
+                <div class="auth-input-group">
+                    <label for="login-password">비밀번호</label>
+                    <input type="password" id="login-password" placeholder="비밀번호 입력">
+                </div>
+                <div id="login-error" class="auth-error" hidden></div>
+                <button type="button" id="login-btn" class="auth-submit-btn">로그인</button>
+            </div>
+
+            <!-- 회원가입 폼 -->
+            <div id="signup-form" class="auth-form" hidden>
+                <div class="auth-input-group">
+                    <label for="signup-email">이메일</label>
+                    <input type="email" id="signup-email" placeholder="example@email.com">
+                </div>
+                <div class="auth-input-group">
+                    <label for="signup-password">비밀번호</label>
+                    <input type="password" id="signup-password" placeholder="비밀번호 입력 (6자 이상)">
+                </div>
+                <div class="auth-input-group">
+                    <label for="signup-password-confirm">비밀번호 확인</label>
+                    <input type="password" id="signup-password-confirm" placeholder="비밀번호 다시 입력">
+                </div>
+                <div id="signup-error" class="auth-error" hidden></div>
+                <div id="signup-success" class="auth-success" hidden></div>
+                <button type="button" id="signup-btn" class="auth-submit-btn">회원가입</button>
+            </div>
+        </div>
+
         <!-- 메인 화면 -->
-        <div id="main-section" aria-labelledby="app-title">
+        <div id="main-section" aria-labelledby="app-title" hidden>
+            <!-- 사용자 정보 및 로그아웃 -->
+            <div class="user-header">
+                <span id="user-email" class="user-email"></span>
+                <button type="button" id="logout-btn" class="logout-btn">로그아웃</button>
+            </div>
+
             <!-- 문장 입력 폼 -->
             <div class="input-form" role="form" aria-label="문장 입력 폼">
                 <div class="input-group">
